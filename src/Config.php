@@ -16,6 +16,8 @@ class Config
     private ?EventDispatcherInterface $eventDispatcher = null;
     private ?OdooApiKeyProvider $apiKeyProvider = null;
     private ?HttpTransportInterface $httpTransport = null;
+    /** @var array<string, mixed> */
+    private array $defaultContext = [];
     private int $maxRetries = 2;
     private int $retryBackoffBaseMs = 500;
     private float $retryBackoffMultiplier = 2.0;
@@ -64,12 +66,20 @@ class Config
         return $this;
     }
 
+    /**
+     * Return a copy of this configuration bound to another API key.
+     *
+     * The clone deliberately does not carry the API key provider: the whole
+     * point of calling `withApiKey()` is to use that explicit key, and a
+     * provider would otherwise keep overriding it.
+     */
     public function withApiKey(string $apiKey): self
     {
         $clone = new self($this->url, $this->db, $apiKey);
         $clone->setLogger($this->logger);
         $clone->setEventDispatcher($this->eventDispatcher);
         $clone->setHttpTransport($this->httpTransport);
+        $clone->setDefaultContext($this->defaultContext);
         $clone->setMaxRetries($this->maxRetries);
         $clone->setRetryBackoff($this->retryBackoffBaseMs, $this->retryBackoffMultiplier);
         $clone->setConnectTimeout($this->connectTimeout);
@@ -109,6 +119,27 @@ class Config
     public function setHttpTransport(?HttpTransportInterface $httpTransport): self
     {
         $this->httpTransport = $httpTransport;
+        return $this;
+    }
+
+    /**
+     * Default context merged under every call that accepts a `context`.
+     *
+     * Explicit per-call values always win; the default only fills the gaps
+     * (e.g. `lang`, `tz`, `allowed_company_ids`). Keep it immutable in
+     * practice: prefer calling this again rather than mutating a shared array.
+     *
+     * @return array<string, mixed>
+     */
+    public function getDefaultContext(): array
+    {
+        return $this->defaultContext;
+    }
+
+    /** @param array<string, mixed> $defaultContext */
+    public function setDefaultContext(array $defaultContext): self
+    {
+        $this->defaultContext = $defaultContext;
         return $this;
     }
 
@@ -198,6 +229,12 @@ class Config
 
         if (isset($config['httpTransport']) && $config['httpTransport'] instanceof HttpTransportInterface) {
             $instance->setHttpTransport($config['httpTransport']);
+        }
+
+        if (isset($config['defaultContext']) && is_array($config['defaultContext'])) {
+            /** @var array<string, mixed> $defaultContext */
+            $defaultContext = $config['defaultContext'];
+            $instance->setDefaultContext($defaultContext);
         }
 
         if (isset($config['maxRetries']) && is_numeric($config['maxRetries'])) {

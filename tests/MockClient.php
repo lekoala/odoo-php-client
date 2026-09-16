@@ -35,6 +35,7 @@ class MockClient extends Client
         $this->logger = new NullLogger();
         $this->config = (new Config('http://odoo.local', 'test_db', $this->apiKey))
             ->setLogger($this->logger);
+        parent::__construct($this->config);
     }
 
     public function getLogger(): LoggerInterface
@@ -73,6 +74,7 @@ class MockClient extends Client
         $this->apiKey = $apiKey;
         $this->config = (new Config('http://odoo.local', 'test_db', $this->apiKey))
             ->setLogger($this->logger);
+        parent::__construct($this->config);
     }
 
     public function getConfig(): Config
@@ -176,12 +178,16 @@ class MockClient extends Client
 
     public function searchRead(OdooModel|string $model, array $domain = [], array $fields = [], int $limit = 0, int $offset = 0, ?string $order = null, array $context = []): array
     {
-        $params = [
-            'domain' => $domain,
-            'fields' => $fields,
-            'limit' => $limit,
-            'offset' => $offset,
-        ];
+        $params = ['domain' => $domain];
+        if ($fields !== []) {
+            $params['fields'] = $fields;
+        }
+        if ($limit > 0) {
+            $params['limit'] = $limit;
+        }
+        if ($offset > 0) {
+            $params['offset'] = $offset;
+        }
         if ($order !== null) {
             $params['order'] = $order;
         }

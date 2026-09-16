@@ -80,4 +80,22 @@ class ConfigTest extends TestCase
         self::assertSame(10, $config->getTimeout());
         self::assertSame(1, $config->getMaxRedirects());
     }
+
+    public function testDefaultContextIsCarriedByWithApiKeyAndFromArray(): void
+    {
+        $config = (new Config('http://odoo.local', 'test_db', 'api_key'))
+            ->setDefaultContext(['lang' => 'fr_BE']);
+
+        self::assertSame(['lang' => 'fr_BE'], $config->getDefaultContext());
+        self::assertSame(['lang' => 'fr_BE'], $config->withApiKey('new')->getDefaultContext());
+
+        $fromArray = Config::fromArray([
+            'url' => 'http://odoo.local',
+            'db' => 'test_db',
+            'apiKey' => 'api_key',
+            'defaultContext' => ['tz' => 'Europe/Brussels'],
+        ]);
+
+        self::assertSame(['tz' => 'Europe/Brussels'], $fromArray->getDefaultContext());
+    }
 }

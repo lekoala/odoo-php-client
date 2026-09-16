@@ -32,17 +32,30 @@ class ApiKeyService
     }
 
     /**
+     * Find a single key by its exact name.
+     *
+     * Queries Odoo directly instead of scanning a capped `listKeys()` page, so
+     * a key beyond the default page size is still found.
+     *
      * @throws OdooException
      */
     public function findByName(string $name): ?ApiKey
     {
-        foreach ($this->listKeys() as $key) {
-            if ($key->name === $name) {
-                return $key;
-            }
-        }
+        $fields = $this->client->getSafeFields('res.users.apikeys', ['name', 'scope', 'expiration_date']);
 
-        return null;
+        /** @var array<int, array<string, mixed>> $rows */
+        $rows = $this->client->searchRead(
+            'res.users.apikeys',
+            [['name', '=', $name]],
+            $fields,
+            1,
+            0,
+            'id desc',
+        );
+
+        $row = $rows[0] ?? null;
+
+        return is_array($row) ? ApiKey::fromRow($row) : null;
     }
 
     /**

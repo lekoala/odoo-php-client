@@ -316,6 +316,16 @@ $config = (new Config($url, $db, $apiKey))
 All of these are also accepted by `Config::fromArray()` under the same
 names, and preserved by `Config::withApiKey()`.
 
+**Default context.** Set it once on `Config` instead of repeating it per call.
+Explicit per-call context wins key by key:
+
+```php
+$config->setDefaultContext(['lang' => 'fr_BE', 'allowed_company_ids' => [2]]);
+```
+
+`Config::withApiKey()` deliberately drops the API key provider (so the explicit
+key is used) but keeps the default context.
+
 **HTTP transport:**
 
 With `ext-curl` installed, no configuration is needed. To reuse Guzzle,
@@ -472,8 +482,10 @@ typical mistakes below deserve to be memorized:
   `create()`, `update()`, `search()`, `findByName()`, `findByEmail()`,
   `findByVat()`, `getPaymentTokens()`, `iteratePaymentTokens()`.
 - **SubscriptionService** (`sale.order`): `list()`, `iterate()`, `get()`,
-  `create()`, `update()`, `getByPartner()`, `iterateByPartner()`,
-  `listPlans()`, `iteratePlans()`, `getPortalUrl()`.
+  `create()`, `update()`, `updateFields()`, `cancel()`, `getByPartner()`,
+  `iterateByPartner()`, `listPlans()`, `iteratePlans()`, `getPortalUrl()`.
+  `cancel()` calls `action_cancel` (never writes `state` directly) and
+  re-reads the record to require `state = cancel` unless `verifyState: false`.
 - **InvoiceService** (`account.move`): `list()`, `iterate()`, `get()`,
   `create()`, `createCreditNote()`, `confirm()`, `getOutstanding()`,
   `listUnpaid()`, `downloadPdf()`, `getPortalUrl()`.

@@ -156,11 +156,15 @@ class CustomerService
      */
     public function create(CustomerInput $input): int
     {
-        return $this->client->create($this->model, $input->toArray());
+        return $this->client->create($this->model, $this->filterExistingFields($input->toArray()));
     }
 
     /**
-     * Update an existing customer record.
+     * Update an existing customer record from a full input object.
+     *
+     * `CustomerInput::toArray()` always carries `name` and `is_company`, so this
+     * rewrites both. To change a single field without resending creation
+     * defaults, use {@see self::updateFields()} instead.
      *
      * @param int $id The Odoo record ID
      * @param CustomerInput $input Typed input data
@@ -169,7 +173,7 @@ class CustomerService
      */
     public function update(int $id, CustomerInput $input): bool
     {
-        return $this->client->write($this->model, [$id], $input->toArray());
+        return $this->client->write($this->model, [$id], $this->filterExistingFields($input->toArray()));
     }
 
     /**
@@ -182,7 +186,27 @@ class CustomerService
      */
     public function updateFields(int $id, array $values): bool
     {
-        return $this->client->write($this->model, [$id], $values);
+        return $this->client->write($this->model, [$id], $this->filterExistingFields($values));
+    }
+
+    /**
+     * Drop values whose field does not exist on the instance, so a write never
+     * fails on a field absent from this Odoo version or installed modules
+     * (e.g. `mobile` on Odoo 19 partners). Omitted keys leave the remote value
+     * untouched; an explicit `false`/`''` still clears a field.
+     *
+     * @param array<string, mixed> $values
+     * @return array<string, mixed>
+     */
+    private function filterExistingFields(array $values): array
+    {
+        if ($values === []) {
+            return [];
+        }
+
+        $existing = $this->client->getSafeFields($this->model, array_keys($values));
+
+        return array_intersect_key($values, array_flip($existing));
     }
 
     /**

@@ -92,7 +92,7 @@ Represents an Odoo 19 subscription backed by `sale.order` with a recurring plan.
 | `subscriptionState` | `string|null` | Subscription lifecycle state such as `3_progress`. |
 | `startDate`       | `string|null` | When the subscription begins.                       |
 | `nextInvoiceDate` | `string|null` | The upcoming billing date.                          |
-| `paymentStatus`   | `string|null` | Payment status when that field was returned.        |
+| `paymentStatus`   | `string|null` | Payment status; `null` when Odoo does not expose the field. |
 | `hasPaymentError` | `bool`        | True if the last automatic transaction failed.      |
 | `rawData`         | `array`       | Complete record payload returned by Odoo.           |
 

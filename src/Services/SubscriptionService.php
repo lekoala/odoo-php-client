@@ -7,6 +7,7 @@ use LeKoala\OdooClient\Models\Subscription;
 use LeKoala\OdooClient\Models\SubscriptionPlan;
 use LeKoala\OdooClient\Inputs\SubscriptionInput;
 use LeKoala\OdooClient\Events\SubscriptionCancelledEvent;
+use LeKoala\OdooClient\OdooException;
 use LeKoala\OdooClient\QueryOptions;
 
 /**
@@ -95,6 +96,7 @@ class SubscriptionService
             'next_invoice_date',
             'order_line',
             'payment_exception',
+            'payment_status',
             'access_token',
             'access_url',
             'write_date',
@@ -127,6 +129,7 @@ class SubscriptionService
             'next_invoice_date',
             'order_line',
             'payment_exception',
+            'payment_status',
             'access_token',
             'access_url'
         ];
@@ -173,22 +176,33 @@ class SubscriptionService
     }
 
     /**
-     * Close/Cancel a subscription.
+     * Cancel a subscription through Odoo's own workflow.
      *
-     * Sets the subscription state to 'close'.
+     * Uses `action_cancel` rather than writing `state` directly, so Odoo
+     * applies its cancellation rules. When `$verifyState` is true (the
+     * default), the record is re-read and `state = cancel` is required.
      *
      * @param int $id The Odoo record ID
+     * @param bool $verifyState Re-read the record and require state = cancel
      * @return bool True on success
      * @throws \LeKoala\OdooClient\OdooException
      */
-    public function cancel(int $id): bool
+    public function cancel(int $id, bool $verifyState = true): bool
     {
-        // In Odoo 17+, cancel is a state on sale.order
-        $success = $this->client->write($this->model, [$id], ['state' => 'cancel']);
-        if ($success) {
-            $this->client->dispatchEvent(new SubscriptionCancelledEvent($id));
+        $this->client->call($this->model, 'action_cancel', ['ids' => [$id]]);
+
+        if ($verifyState) {
+            $subscription = $this->get($id);
+            if ($subscription === null || $subscription->state !== 'cancel') {
+                $actualState = $subscription === null ? 'unknown' : $subscription->state;
+                throw new OdooException(
+                    "Subscription #{$id} was not cancelled after action_cancel. Current state: {$actualState}"
+                );
+            }
         }
-        return $success;
+
+        $this->client->dispatchEvent(new SubscriptionCancelledEvent($id));
+        return true;
     }
 
     /**

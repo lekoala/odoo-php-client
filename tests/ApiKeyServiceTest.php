@@ -49,16 +49,20 @@ class ApiKeyServiceTest extends TestCase
         self::assertSame(-20, $key->daysUntilExpiry(strtotime('2026-01-30 00:00:00')));
     }
 
-    public function testFindByNameMatchesExactly(): void
+    public function testFindByNameQueriesOdooByExactName(): void
     {
-        $this->client->mockResponse('res.users.apikeys', 'search_read', [
-            ['id' => 9, 'name' => 'shop-live-20260827-120000-abc123'],
-            ['id' => 8, 'name' => 'shop-live'],
-        ]);
+        $this->client->mockResponse('res.users.apikeys', 'search_read', static function (array $params): array {
+            $name = $params['domain'][0][2] ?? null;
 
-        self::assertSame(9, $this->service->findByName('shop-live-20260827-120000-abc123')?->id);
+            return $name === 'shop-live' ? [['id' => 8, 'name' => 'shop-live']] : [];
+        });
+
         self::assertSame(8, $this->service->findByName('shop-live')?->id);
         self::assertNull($this->service->findByName('shop'));
+
+        $call = $this->client->getLastCall();
+        self::assertContains(['name', '=', 'shop'], $call['params']['domain']);
+        self::assertSame(1, $call['params']['limit']);
     }
 
     public function testGenerateSendsEverythingAsNamedParameters(): void

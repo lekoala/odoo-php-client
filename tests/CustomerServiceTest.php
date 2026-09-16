@@ -97,6 +97,43 @@ class CustomerServiceTest extends TestCase
         self::assertEquals($expectedPayload, $lastCall['params']['vals']);
     }
 
+    public function testCreateDropsFieldsMissingFromTheInstanceSchema(): void
+    {
+        $this->client->mockResponse('res.partner', 'fields_get', [
+            'name' => ['type' => 'char'],
+            'is_company' => ['type' => 'boolean'],
+            'email' => ['type' => 'char'],
+            'phone' => ['type' => 'char'],
+        ]);
+        $this->client->mockResponse('res.partner', 'create', 7);
+
+        $input = new CustomerInput(
+            name: 'New Corp',
+            email: 'contact@newcorp.com',
+            phone: '+3212345678',
+            mobile: '+3245678901',
+        );
+        $this->service->create($input);
+
+        $values = $this->client->getLastCall()['params']['vals_list'][0];
+        self::assertArrayNotHasKey('mobile', $values);
+        self::assertSame('+3212345678', $values['phone']);
+        self::assertSame('contact@newcorp.com', $values['email']);
+    }
+
+    public function testPartialUpdateKeepsExplicitFalseButDropsUnknownFields(): void
+    {
+        $this->client->mockResponse('res.partner', 'fields_get', [
+            'active' => ['type' => 'boolean'],
+        ]);
+        $this->client->mockResponse('res.partner', 'write', true);
+
+        $this->service->updateFields(99, ['active' => false, 'mobile' => '+3245678901']);
+
+        $values = $this->client->getLastCall()['params']['vals'];
+        self::assertSame(['active' => false], $values);
+    }
+
     public function testListAcceptsUnboundedDetailedQueryOptions(): void
     {
         $this->client->mockResponse('res.partner', 'search_read', []);
@@ -109,7 +146,7 @@ class CustomerServiceTest extends TestCase
         ));
 
         $params = $this->client->getLastCall()['params'];
-        self::assertSame(0, $params['limit']);
+        self::assertArrayNotHasKey('limit', $params);
         self::assertSame(20, $params['offset']);
         self::assertSame('name asc', $params['order']);
         self::assertSame(['id', 'name'], $params['fields']);
@@ -259,6 +296,6 @@ class CustomerServiceTest extends TestCase
         self::assertCount(1, $tokens);
         self::assertEquals('•••• 4242', $tokens[0]->name);
         self::assertEquals(42, $tokens[0]->partnerId);
-        self::assertSame(0, $this->client->getLastCall()['params']['limit']);
+        self::assertArrayNotHasKey('limit', $this->client->getLastCall()['params']);
     }
 }

@@ -169,6 +169,79 @@ class ClientTest extends TestCase
         self::assertSame(['allowed_company_ids' => [2]], $calls[0]['params']['context']);
     }
 
+    public function testSearchReadOnlySendsProvidedOptions(): void
+    {
+        $spy = new SpyOdooAdapter();
+        $spy->response = [];
+
+        $this->clientWithSpyAdapter($spy)->searchRead('res.partner', [['active', '=', true]]);
+
+        self::assertSame(['domain' => [['active', '=', true]]], $spy->calls[0][2]);
+    }
+
+    public function testSearchReadKeepsExplicitOptions(): void
+    {
+        $spy = new SpyOdooAdapter();
+        $spy->response = [];
+
+        $this->clientWithSpyAdapter($spy)->searchRead(
+            'res.partner',
+            [],
+            ['id', 'name'],
+            25,
+            10,
+            'name asc',
+            ['lang' => 'fr_BE'],
+        );
+
+        self::assertSame([
+            'domain' => [],
+            'fields' => ['id', 'name'],
+            'limit' => 25,
+            'offset' => 10,
+            'order' => 'name asc',
+            'context' => ['lang' => 'fr_BE'],
+        ], $spy->calls[0][2]);
+    }
+
+    public function testDefaultContextFillsGapsUnderExplicitContext(): void
+    {
+        $spy = new SpyOdooAdapter();
+        $spy->response = [];
+        $config = (new Config('http://odoo.local', 'test_db', 'api_key'))
+            ->setDefaultContext(['lang' => 'fr_BE', 'tz' => 'Europe/Brussels']);
+
+        (new Client($config, $spy))->searchRead(
+            'res.partner',
+            [],
+            [],
+            0,
+            0,
+            null,
+            ['lang' => 'en_US'],
+        );
+
+        self::assertSame(
+            ['lang' => 'en_US', 'tz' => 'Europe/Brussels'],
+            $spy->calls[0][2]['context'],
+        );
+    }
+
+    public function testDefaultContextIsAppliedToWrites(): void
+    {
+        $spy = new SpyOdooAdapter();
+        $spy->response = [5];
+        $config = (new Config('http://odoo.local', 'test_db', 'api_key'))
+            ->setDefaultContext(['allowed_company_ids' => [2]]);
+
+        (new Client($config, $spy))->create('res.partner', ['name' => 'Alice']);
+
+        self::assertSame([
+            'vals_list' => [['name' => 'Alice']],
+            'context' => ['allowed_company_ids' => [2]],
+        ], $spy->calls[0][2]);
+    }
+
     public function testSensitiveValuesInPositionalDomainsAreRedacted(): void
     {
         $method = new \ReflectionMethod(Client::class, 'redactForLog');

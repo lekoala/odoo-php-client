@@ -22,7 +22,7 @@ class Client
     private OdooAdapterInterface $adapter;
     private LoggerInterface $logger;
     private ?EventDispatcherInterface $eventDispatcher = null;
-    private ?HttpClient $httpClient = null;
+    private ?HttpTransportInterface $explicitTransport = null;
     /** @var array<string, array<string, mixed>> Cache for model fields */
     private array $fieldCache = [];
 
@@ -78,17 +78,12 @@ class Client
     )
     {
         $this->config = $config;
+        $this->explicitTransport = $httpTransport;
         $this->sleeper = $sleeper ?? static function (int $micros): void {
             if ($micros > 0) {
                 usleep($micros);
             }
         };
-        $this->httpClient = new HttpClient(
-            $httpTransport ?? $config->getHttpTransport() ?? new CurlTransport(
-                $config->getConnectTimeout(),
-                $config->getTimeout()
-            )
-        );
         $this->adapter = $adapter ?? $this->createAdapter($config);
         $this->logger = $config->getLogger();
         $this->eventDispatcher = $config->getEventDispatcher();
@@ -113,14 +108,21 @@ class Client
         return new JsonAdapter($config, $this->getHttpClient());
     }
 
+    /**
+     * Resolve an HTTP client from the current transport configuration.
+     *
+     * The transport is looked up on each call so a `Config::setHttpTransport()`
+     * performed after the client was built is still honoured (notably for
+     * portal/PDF downloads that bypass the JSON adapter).
+     */
     public function getHttpClient(): HttpClient
     {
-        return $this->httpClient ??= new HttpClient(
-            $this->getConfig()->getHttpTransport() ?? new CurlTransport(
-                $this->getConfig()->getConnectTimeout(),
-                $this->getConfig()->getTimeout()
-            )
-        );
+        $config = $this->getConfig();
+        $transport = $this->explicitTransport
+            ?? $config->getHttpTransport()
+            ?? new CurlTransport($config->getConnectTimeout(), $config->getTimeout());
+
+        return new HttpClient($transport);
     }
 
     /**
@@ -155,7 +157,11 @@ class Client
     }
 
     /**
-     * Authenticate with Odoo
+     * Probe the API key by asking Odoo for the current user context.
+     *
+     * Bearer authentication is stateless, so this is optional: every JSON-2
+     * call carries the key. Use it when you want an explicit early check that
+     * the key is valid before running a workflow.
      */
     public function authenticate(): bool
     {
@@ -348,9 +354,31 @@ class Client
      */
     public function search(OdooModel|string $model, array $domain = [], array $kwargs = []): array
     {
+        $params = $this->applyDefaultContext(array_merge(['domain' => $domain], $kwargs));
         /** @var array<int, mixed> $result */
-        $result = $this->call($model, 'search', array_merge(['domain' => $domain], $kwargs));
+        $result = $this->call($model, 'search', $params);
         return $result;
+    }
+
+    /**
+     * Merge the default context configured on {@see Config} under an explicit
+     * one. Explicit keys always win; the default only fills what the caller
+     * left out.
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    private function applyDefaultContext(array $params): array
+    {
+        $default = $this->config->getDefaultContext();
+        if ($default === []) {
+            return $params;
+        }
+
+        $provided = isset($params['context']) && is_array($params['context']) ? $params['context'] : [];
+        $params['context'] = array_merge($default, $provided);
+
+        return $params;
     }
 
     /**
@@ -370,7 +398,7 @@ class Client
             $params['context'] = $context;
         }
         /** @var array<int, mixed> $result */
-        $result = $this->call($model, 'read', $params);
+        $result = $this->call($model, 'read', $this->applyDefaultContext($params));
         return $result;
     }
 
@@ -381,7 +409,8 @@ class Client
      */
     public function searchCount(OdooModel|string $model, array $domain = [], array $options = []): int
     {
-        $result = $this->call($model, 'search_count', array_merge(['domain' => $domain], $options));
+        $params = $this->applyDefaultContext(array_merge(['domain' => $domain], $options));
+        $result = $this->call($model, 'search_count', $params);
 
         return is_numeric($result) ? (int) $result : 0;
     }
@@ -420,12 +449,13 @@ class Client
         array $groupBy,
         array $options = []
     ): array {
-        /** @var array<int, mixed> $result */
-        $result = $this->call($model, 'read_group', array_merge([
+        $params = $this->applyDefaultContext(array_merge([
             'domain' => $domain,
             'fields' => $fields,
             'groupby' => $groupBy,
         ], $options));
+        /** @var array<int, mixed> $result */
+        $result = $this->call($model, 'read_group', $params);
 
         return $result;
     }
@@ -442,23 +472,26 @@ class Client
      */
     public function searchRead(OdooModel|string $model, array $domain = [], array $fields = [], int $limit = 0, int $offset = 0, ?string $order = null, array $context = []): array
     {
-        $params = [
-            'domain' => $domain,
-            'fields' => $fields,
-            'limit' => $limit,
-            'offset' => $offset,
-        ];
+        $params = ['domain' => $domain];
 
+        if ($fields !== []) {
+            $params['fields'] = $fields;
+        }
+        if ($limit > 0) {
+            $params['limit'] = $limit;
+        }
+        if ($offset > 0) {
+            $params['offset'] = $offset;
+        }
         if ($order !== null) {
             $params['order'] = $order;
         }
-
         if ($context !== []) {
             $params['context'] = $context;
         }
 
         /** @var array<int, mixed> $result */
-        $result = $this->call($model, 'search_read', $params);
+        $result = $this->call($model, 'search_read', $this->applyDefaultContext($params));
         return $result;
     }
 
@@ -529,7 +562,7 @@ class Client
         if ($context !== []) {
             $params['context'] = $context;
         }
-        $result = $this->call($model, 'create', $params);
+        $result = $this->call($model, 'create', $this->applyDefaultContext($params));
         $id = self::firstPositiveId($result);
 
         if ($id > 0) {
@@ -558,7 +591,7 @@ class Client
         if ($context !== []) {
             $params['context'] = $context;
         }
-        $result = $this->call($model, 'create', $params);
+        $result = $this->call($model, 'create', $this->applyDefaultContext($params));
         if (!is_array($result)) {
             return [];
         }
@@ -594,7 +627,7 @@ class Client
         if ($context !== []) {
             $params['context'] = $context;
         }
-        $success = (bool) $this->call($model, 'write', $params);
+        $success = (bool) $this->call($model, 'write', $this->applyDefaultContext($params));
 
         if ($success) {
             $modelName = $model instanceof OdooModel ? $model->value : $model;
@@ -621,7 +654,7 @@ class Client
         if ($context !== []) {
             $params['context'] = $context;
         }
-        $success = (bool) $this->call($model, 'unlink', $params);
+        $success = (bool) $this->call($model, 'unlink', $this->applyDefaultContext($params));
 
         if ($success) {
             $modelName = $model instanceof OdooModel ? $model->value : $model;
@@ -659,7 +692,7 @@ class Client
         if ($context !== []) {
             $params['context'] = $context;
         }
-        $result = $this->call($modelName, 'fields_get', $params);
+        $result = $this->call($modelName, 'fields_get', $this->applyDefaultContext($params));
 
         if (!is_array($result)) {
             $result = [];

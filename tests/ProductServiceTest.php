@@ -37,7 +37,7 @@ class ProductServiceTest extends TestCase
         /** @var array<int, mixed> $domain */
         $domain = $lastCall['params']['domain'] ?? [];
         self::assertContains(['type_tax_use', '=', 'sale'], $domain);
-        self::assertSame(0, $lastCall['params']['limit']);
+        self::assertArrayNotHasKey('limit', $lastCall['params']);
     }
 
     public function testProductsAndTaxesAcceptQueryOptions(): void
@@ -50,6 +50,6 @@ class ProductServiceTest extends TestCase
 
         $this->client->mockResponse('account.tax', 'search_read', []);
         $this->service->listTaxes('sale', new QueryOptions());
-        self::assertSame(0, $this->client->getLastCall()['params']['limit']);
+        self::assertArrayNotHasKey('limit', $this->client->getLastCall()['params']);
     }
 }

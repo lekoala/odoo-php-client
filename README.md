@@ -78,6 +78,10 @@ foreach ($odoo->customers->iterate(
 `iterate()` for large tables. Passing an integer as the second argument remains
 supported as shorthand for an explicit limit.
 
+Low-level `searchRead()` sends only the options you actually provide: an empty
+`$fields`, a zero limit/offset or a null order is omitted from the request body
+instead of being sent as `[]`/`0`/`null`.
+
 See [the complete documentation](docs/index.md), [input DTOs](docs/inputs.md), [models](docs/models.md), and [examples](examples/).
 
 AI agents: the generic integration skill shipped with this package is
@@ -90,6 +94,7 @@ AI agents: the generic integration skill shipped with this package is
 - Read-only calls may be retried after transient gateway/network failures; writes and actions are not retried automatically.
   Retry count, backoff, timeouts and redirects are configurable on `Config` (`setMaxRetries()`, `setRetryBackoff()`,
   `setConnectTimeout()`, `setTimeout()`, `setMaxRedirects()`).
+- A default `context` can be set once with `Config::setDefaultContext()`; explicit per-call context wins key by key.
 - `Client::fieldsOf()` caches `fields_get` per instance; call `clearFieldsCache()` after module upgrades.
 - Events are dispatched after the remote mutation has committed: a listener exception is logged, never reported as an Odoo failure.
 - Stripe and Peppol live in `Addon\Stripe` and `Addon\Peppol` (`Odoo::$stripe`, `Odoo::$peppol`); the previous

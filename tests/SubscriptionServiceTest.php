@@ -126,23 +126,61 @@ class SubscriptionServiceTest extends TestCase
         self::assertSame(['next_invoice_date' => '2026-10-01'], $lastCall['params']['vals']);
     }
 
-    public function testCancelWritesCancelState(): void
+    public function testCancelUsesOdoosWorkflowAndVerifiesState(): void
     {
-        $this->client->mockResponse('sale.order', 'write', true);
+        $this->client->mockResponse('sale.order', 'action_cancel', true);
+        $this->client->mockResponse('sale.order', 'read', [
+            ['id' => 1, 'name' => 'SUB/001', 'state' => 'cancel'],
+        ]);
 
         $result = $this->service->cancel(1);
 
         self::assertTrue($result);
-        $lastCall = $this->client->getLastCall();
-        self::assertEquals('write', $lastCall['method']);
-        /** @var array<string, mixed> $values */
-        $values = $lastCall['params']['vals'] ?? [];
-        self::assertEquals('cancel', $values['state'] ?? null);
+
+        $cancelCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['method'] === 'action_cancel') {
+                $cancelCall = $call;
+            }
+        }
+        self::assertNotNull($cancelCall, 'action_cancel must be called');
+        self::assertSame([1], $cancelCall['params']['ids']);
+    }
+
+    public function testCancelSkipsStateVerificationOnDemand(): void
+    {
+        $this->client->mockResponse('sale.order', 'action_cancel', true);
+
+        self::assertTrue($this->service->cancel(1, false));
+
+        $methods = array_column($this->client->getCallLog(), 'method');
+        self::assertContains('action_cancel', $methods);
+        self::assertNotContains('read', $methods);
+    }
+
+    public function testCancelFailsWhenOdooDidNotCancelTheRecord(): void
+    {
+        $this->client->mockResponse('sale.order', 'action_cancel', true);
+        $this->client->mockResponse('sale.order', 'read', [
+            ['id' => 1, 'name' => 'SUB/001', 'state' => 'sale'],
+        ]);
+
+        try {
+            $this->service->cancel(1);
+            self::fail('A record still in state sale must raise.');
+        } catch (\LeKoala\OdooClient\OdooException $e) {
+            self::assertStringContainsString('was not cancelled', $e->getMessage());
+        }
+
+        self::assertSame([], $this->client->getDispatchedEvents());
     }
 
     public function testCancelDispatchesEvent(): void
     {
-        $this->client->mockResponse('sale.order', 'write', true);
+        $this->client->mockResponse('sale.order', 'action_cancel', true);
+        $this->client->mockResponse('sale.order', 'read', [
+            ['id' => 55, 'name' => 'SUB/055', 'state' => 'cancel'],
+        ]);
         $this->service->cancel(55);
 
         $events = $this->client->getDispatchedEvents();
@@ -166,7 +204,7 @@ class SubscriptionServiceTest extends TestCase
         $domain = $lastCall['params']['domain'] ?? [];
         self::assertContains(['partner_id', '=', 10], $domain);
         self::assertContains(['is_subscription', '=', true], $domain);
-        self::assertSame(0, $lastCall['params']['limit']);
+        self::assertArrayNotHasKey('limit', $lastCall['params']);
     }
 
     public function testGetByPartnerCanExplicitlyRequestAllRows(): void
@@ -176,7 +214,7 @@ class SubscriptionServiceTest extends TestCase
         $this->service->getByPartner(10, new QueryOptions());
 
         $params = $this->client->getLastCall()['params'];
-        self::assertSame(0, $params['limit']);
+        self::assertArrayNotHasKey('limit', $params);
         self::assertContains(['partner_id', '=', 10], $params['domain']);
         self::assertContains(['is_subscription', '=', true], $params['domain']);
     }
@@ -210,6 +248,30 @@ class SubscriptionServiceTest extends TestCase
         /** @var array<int, mixed> $domain */
         $domain = $lastCall['params']['domain'] ?? [];
         self::assertContains(['payment_exception', '=', true], $domain);
+    }
+
+    public function testListRequestsAndPopulatesPaymentStatus(): void
+    {
+        $this->client->mockResponse('sale.order', 'search_read', [
+            ['id' => 1, 'name' => 'SUB/001', 'payment_status' => 'paid', 'is_subscription' => true],
+        ]);
+
+        $subscriptions = $this->service->list();
+
+        self::assertTrue($subscriptions[0]->isPaid());
+        self::assertContains('payment_status', $this->client->getLastCall()['params']['fields']);
+    }
+
+    public function testPaymentStatusStaysNullWhenOdooOmitsIt(): void
+    {
+        $this->client->mockResponse('sale.order', 'search_read', [
+            ['id' => 1, 'name' => 'SUB/001', 'is_subscription' => true],
+        ]);
+
+        $subscriptions = $this->service->list();
+
+        self::assertNull($subscriptions[0]->paymentStatus);
+        self::assertFalse($subscriptions[0]->isPaid());
     }
 
     public function testSubscriptionPaymentHelpers(): void

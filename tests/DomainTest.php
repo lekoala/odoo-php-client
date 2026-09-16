@@ -80,4 +80,52 @@ class DomainTest extends TestCase
         // Note: Odoo treats [OR, A, B, C] as (A OR B) AND C 
         // because the top-level is implicit AND.
     }
+
+    public function testChainedOrWhereStaysLeftAssociative(): void
+    {
+        // (A OR B) OR C
+        $domain = Domain::build()
+            ->where('A', '=', 1)
+            ->orWhere('B', '=', 2)
+            ->orWhere('C', '=', 3)
+            ->get();
+
+        self::assertEquals([
+            '|',
+            '|',
+            ['A', '=', 1],
+            ['B', '=', 2],
+            ['C', '=', 3]
+        ], $domain);
+    }
+
+    public function testOrWhereAfterAnAndBlockStaysLeftAssociative(): void
+    {
+        // ((A AND B) OR C) OR D
+        $domain = Domain::build()
+            ->where('A', '=', 1)
+            ->where('B', '=', 2)
+            ->orWhere('C', '=', 3)
+            ->orWhere('D', '=', 4)
+            ->get();
+
+        self::assertEquals([
+            '|',
+            '|',
+            '&',
+            ['A', '=', 1],
+            ['B', '=', 2],
+            ['C', '=', 3],
+            ['D', '=', 4]
+        ], $domain);
+    }
+
+    public function testOrWhereOnAnEmptyDomainBehavesLikeWhere(): void
+    {
+        $domain = Domain::build()
+            ->orWhere('A', '=', 1)
+            ->get();
+
+        self::assertEquals([['A', '=', 1]], $domain);
+    }
 }

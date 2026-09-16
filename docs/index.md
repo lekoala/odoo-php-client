@@ -109,11 +109,31 @@ Iterators always use a deterministic order. If the requested order does not cont
 
 ---
 
+## Default context
+
+Set a default `context` once on the `Config`; every call that accepts a context
+(`read`, `search`, `searchRead`, `create`, `write`, `unlink`, `fields_get`, …)
+merges it underneath the per-call value. Explicit keys always win:
+
+```php
+$config = (new Config($url, $db, $apiKey))
+    ->setDefaultContext([
+        'lang' => 'fr_BE',
+        'tz' => 'Europe/Brussels',
+        'allowed_company_ids' => [2],
+    ]);
+```
+
+The default is copied by value, never shared as mutable state, so different
+companies can safely use different `Client` instances.
+
+---
+
 ## Services
 
 ### SubscriptionService
 
-Manages Odoo subscriptions (`sale.subscription`).
+Manages Odoo subscriptions (`sale.order` with `is_subscription = true`).
 
 - `list(array $domain, QueryOptions|int|null $options)`: Returns matching `Subscription` models without a hidden cap.
 - `iterate(array $domain, ?QueryOptions $options)`: Lazily yields subscriptions in stable pages.
@@ -134,6 +154,8 @@ Manages Odoo invoices (`account.move`).
 - `confirm(int $id)`: Posts (confirms) a draft invoice.
 - `getOutstanding(int $partnerId)`: Returns unpaid posted invoices for a partner.
 - `listUnpaid()`: Returns all unpaid or partially paid posted invoices globally.
+- `downloadPdf(int $id)`: Downloads the binary PDF content of an invoice.
+- `getPortalUrl(int $id)`: Generates a secure, one-click access link for the customer.
 - `listPeppolReady()`, `listByPeppolStatus()`, `sendViaPeppol()`: Deprecated PEPPOL proxies, use `Odoo::$peppol` (`Addon\Peppol\PeppolService`).
 
 ### ProductService
@@ -155,8 +177,6 @@ Handles payment registration via the `account.payment.register` wizard.
 - `processPaymentToken(int $invoiceId, float $amount, int $tokenId, ?int $journalId = null, ?int $paymentMethodLineId = null)`: Charges an invoice using a saved Odoo payment token and returns a `PaymentResult`.
 - Stripe helpers (`getStripeProviderId()`, `importStripeToken()`, …): Deprecated proxies, use `Odoo::$stripe` (`Addon\Stripe\StripeService`)
   with explicit company and test/live state via `requireStripeProviderId()`.
-- `downloadPdf(int $id)`: Download the binary PDF content of an invoice.
-- `getPortalUrl(int $id)`: Generate a secure, one-click access link for the customer.
 
 ### CustomerService
 
@@ -169,7 +189,6 @@ Manages Odoo customers/partners (`res.partner`).
 - `search(string $query)`: Searches customers by name, email, or reference.
 - `findByName(string $name, bool $exact = false)`: Find customers specifically by name.
 - `getByCountry(string $code)`: Finds customers by ISO country code.
-- `getPortalUrl(int $id)`: Generate a secure, one-click access link for the subscription.
 - `findByEmail(string $email)`: Exact match lookup by email.
 - `listPeppolEnabled()`: Deprecated PEPPOL proxy, use `Odoo::$peppol`.
 

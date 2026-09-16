@@ -46,7 +46,7 @@ class InvoiceServiceTest extends TestCase
         self::assertInstanceOf(Invoice::class, $invoices[0]);
         self::assertEquals('INV/2026/001', $invoices[0]->name);
         self::assertEquals(100.0, $invoices[0]->amountTotal);
-        self::assertSame(0, $this->client->getLastCall()['params']['limit']);
+        self::assertArrayNotHasKey('limit', $this->client->getLastCall()['params']);
     }
 
     public function testGetReturnsInvoice(): void
