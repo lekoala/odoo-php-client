@@ -1,0 +1,83 @@
+<?php
+
+namespace LeKoala\OdooClient\Tests;
+
+use LeKoala\OdooClient\Domain;
+use PHPUnit\Framework\TestCase;
+
+class DomainTest extends TestCase
+{
+    public function testSimpleWhere(): void
+    {
+        $domain = Domain::build()->where('state', '=', 'posted')->get();
+        self::assertEquals([['state', '=', 'posted']], $domain);
+    }
+
+    public function testMultipleWhere(): void
+    {
+        $domain = Domain::build()
+            ->where('state', '=', 'posted')
+            ->where('move_type', '=', 'out_invoice')
+            ->get();
+            
+        self::assertEquals([
+            ['state', '=', 'posted'],
+            ['move_type', '=', 'out_invoice']
+        ], $domain);
+    }
+
+    public function testOrWhere(): void
+    {
+        $domain = Domain::build()
+            ->where('is_company', '=', true)
+            ->orWhere('name', 'ilike', 'Azure')
+            ->get();
+            
+        self::assertEquals([
+            '|',
+            ['is_company', '=', true],
+            ['name', 'ilike', 'Azure']
+        ], $domain);
+    }
+
+    public function testComplexNesting(): void
+    {
+        // (A AND B) OR C
+        $domain = Domain::build()
+            ->where('A', '=', 1)
+            ->where('B', '=', 2)
+            ->orWhere('C', '=', 3)
+            ->get();
+            
+        self::assertEquals([
+            '|',
+            '&',
+            ['A', '=', 1],
+            ['B', '=', 2],
+            ['C', '=', 3]
+        ], $domain);
+        
+        // ((A AND B) OR C) AND D
+        $domain[] = ['D', '=', 4]; // Test adding manual AND after builder
+        // Odoo will treat this correctly as it parses prefix notation.
+    }
+    
+    public function testNestingWithWhereAfterOr(): void
+    {
+        // ((A OR B) AND C)
+        $domain = Domain::build()
+            ->where('A', '=', 1)
+            ->orWhere('B', '=', 2)
+            ->where('C', '=', 3)
+            ->get();
+            
+        self::assertEquals([
+            '|',
+            ['A', '=', 1],
+            ['B', '=', 2],
+            ['C', '=', 3]
+        ], $domain);
+        // Note: Odoo treats [OR, A, B, C] as (A OR B) AND C 
+        // because the top-level is implicit AND.
+    }
+}

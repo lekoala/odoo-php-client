@@ -1,0 +1,45 @@
+{
+    "name": "lekoala/odoo-php-client",
+    "description": "Generic PHP client for the Odoo 19+ External JSON-2 API",
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://github.com/lekoala/odoo-php-client",
+    "keywords": ["odoo", "json-2", "api", "client", "erp"],
+    "support": {
+        "issues": "https://github.com/lekoala/odoo-php-client/issues",
+        "source": "https://github.com/lekoala/odoo-php-client"
+    },
+    "autoload": {
+        "psr-4": {
+            "LeKoala\\OdooClient\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LeKoala\\OdooClient\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": ">=8.3",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-message": "^1.1 || ^2.0",
+        "psr/log": "^3.0",
+        "psr/event-dispatcher": "^1.0",
+        "composer/ca-bundle": "^1.5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "phpstan/phpstan": "^2.1"
+    },
+    "suggest": {
+        "ext-curl": "Required by the zero-configuration CurlTransport fallback",
+        "guzzlehttp/guzzle": "Use Guzzle as the PSR-18 transport",
+        "nyholm/psr7": "PSR-7 and PSR-17 implementation commonly used with Symfony HttpClient",
+        "symfony/http-client": "Use Symfony HttpClient through its PSR-18 adapter"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "sa": "phpstan"
+    }
+}
