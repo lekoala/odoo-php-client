@@ -8,12 +8,11 @@ use LeKoala\OdooClient\Config;
 use LeKoala\OdooClient\Enums\OdooModel;
 use LeKoala\OdooClient\Events\OdooRecordCreatedEvent;
 use LeKoala\OdooClient\Exceptions\OdooNetworkException;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
-/**
- * @covers \LeKoala\OdooClient\Client
- */
+#[CoversClass(\LeKoala\OdooClient\Client::class)]
 class ClientResilienceTest extends TestCase
 {
     public function testReadsAreRetriedWithConfiguredBackoff(): void
@@ -126,6 +125,7 @@ class ClientResilienceTest extends TestCase
     }
 }
 
+#[CoversClass(\LeKoala\OdooClient\Client::class)]
 class FlakyAdapter implements OdooAdapterInterface
 {
     /** @var array<int, array{0: string, 1: string, 2: array<string, mixed>}> */
@@ -157,6 +157,7 @@ class FlakyAdapter implements OdooAdapterInterface
     }
 }
 
+#[CoversClass(\LeKoala\OdooClient\Client::class)]
 class ThrowingDispatcher implements EventDispatcherInterface
 {
     public ?object $seen = null;

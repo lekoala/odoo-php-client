@@ -6,11 +6,10 @@ use LeKoala\OdooClient\Addon\Stripe\AmbiguousStripeProviderException;
 use LeKoala\OdooClient\Addon\Stripe\NoStripeProviderException;
 use LeKoala\OdooClient\Addon\Stripe\StripeService;
 use LeKoala\OdooClient\Tests\MockClient;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Addon\Stripe\StripeService
- */
+#[CoversClass(\LeKoala\OdooClient\Addon\Stripe\StripeService::class)]
 class StripeServiceTest extends TestCase
 {
     private MockClient $client;

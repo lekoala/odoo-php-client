@@ -10,11 +10,10 @@ use LeKoala\OdooClient\Exceptions\OdooValidationException;
 use LeKoala\OdooClient\Config;
 use LeKoala\OdooClient\Http\HttpResponse;
 use LeKoala\OdooClient\Tests\Support\RecordingTransport;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Adapters\JsonAdapter
- */
+#[CoversClass(\LeKoala\OdooClient\Adapters\JsonAdapter::class)]
 class JsonAdapterTest extends TestCase
 {
     private JsonAdapter $adapter;

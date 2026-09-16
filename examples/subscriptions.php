@@ -25,11 +25,14 @@ try {
     /*
     echo "\nCreating a new subscription...\n";
     $input = new SubscriptionInput(
-        partnerId: 10, // Replace with valid partner ID
-        templateId: 1, // Replace with valid subscription template ID
-        dateStart: date('Y-m-d')
+        partnerId: 10, // Replace with a valid partner ID
+        planId: 1,     // Replace with a valid recurring plan ID
+        startDate: date('Y-m-d'),
+        orderLines: [
+            [0, 0, ['product_id' => 5, 'product_uom_qty' => 1, 'price_unit' => 100]],
+        ],
     );
-    
+
     $subId = $app->subscriptions->create($input);
     echo "Created subscription with ID: $subId\n";
     */

@@ -6,11 +6,10 @@ use LeKoala\OdooClient\Addon\Peppol\PeppolService;
 use LeKoala\OdooClient\Models\Customer;
 use LeKoala\OdooClient\Models\Invoice;
 use LeKoala\OdooClient\Tests\MockClient;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Addon\Peppol\PeppolService
- */
+#[CoversClass(\LeKoala\OdooClient\Addon\Peppol\PeppolService::class)]
 class PeppolServiceTest extends TestCase
 {
     private MockClient $client;

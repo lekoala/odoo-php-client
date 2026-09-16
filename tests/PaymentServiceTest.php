@@ -6,11 +6,10 @@ use LeKoala\OdooClient\Services\PaymentService;
 use LeKoala\OdooClient\Events\PaymentRegisteredEvent;
 use LeKoala\OdooClient\Enums\PaymentResolution;
 use LeKoala\OdooClient\Models\PaymentResult;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Services\PaymentService
- */
+#[CoversClass(\LeKoala\OdooClient\Services\PaymentService::class)]
 class PaymentServiceTest extends TestCase
 {
     private MockClient $client;

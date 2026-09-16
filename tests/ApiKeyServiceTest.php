@@ -4,11 +4,11 @@ namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\OdooException;
 use LeKoala\OdooClient\Services\ApiKeyService;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Services\ApiKeyService
- */
+#[CoversClass(ApiKeyService::class)]
 class ApiKeyServiceTest extends TestCase
 {
     private MockClient $client;
@@ -83,9 +83,7 @@ class ApiKeyServiceTest extends TestCase
         self::assertNull($call['params']['scope']);
     }
 
-    /**
-     * @dataProvider generateResponseShapes
-     */
+    #[DataProvider('generateResponseShapes')]
     public function testGenerateReadsTheKeyOutOfAnyPlausibleShape(mixed $response): void
     {
         $this->client->mockResponse('res.users.apikeys', 'generate', $response);
@@ -164,9 +162,7 @@ class ApiKeyServiceTest extends TestCase
         self::assertNull($this->service->programmaticManagementEnabled());
     }
 
-    /**
-     * @dataProvider truthyParameterValues
-     */
+    #[DataProvider('truthyParameterValues')]
     public function testProgrammaticManagementReadsOdoosTruthyStrings(string $value, bool $expected): void
     {
         $this->client->mockResponse('ir.config_parameter', 'search_read', [

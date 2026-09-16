@@ -9,11 +9,10 @@ use LeKoala\OdooClient\Inputs\InvoiceLineInput;
 use LeKoala\OdooClient\Http\HttpResponse;
 use LeKoala\OdooClient\Tests\Support\RecordingTransport;
 use LeKoala\OdooClient\QueryOptions;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Services\InvoiceService
- */
+#[CoversClass(\LeKoala\OdooClient\Services\InvoiceService::class)]
 class InvoiceServiceTest extends TestCase
 {
     private MockClient $client;

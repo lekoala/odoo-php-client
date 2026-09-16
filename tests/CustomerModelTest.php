@@ -3,11 +3,10 @@
 namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\Models\Customer;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Models\Customer
- */
+#[CoversClass(\LeKoala\OdooClient\Models\Customer::class)]
 class CustomerModelTest extends TestCase
 {
     public function testModelMapping(): void

@@ -3,11 +3,11 @@
 namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\Legacy\LegacyRpcArgumentMapper;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Legacy\LegacyRpcArgumentMapper
- */
+#[CoversClass(LegacyRpcArgumentMapper::class)]
 class LegacyRpcArgumentMapperTest extends TestCase
 {
     private LegacyRpcArgumentMapper $mapper;
@@ -113,11 +113,11 @@ class LegacyRpcArgumentMapperTest extends TestCase
     }
 
     /**
-     * @dataProvider productionCallShapes
      * @param array<int, mixed> $args
      * @param array<string, mixed> $kwargs
      * @param array<string, mixed> $expected
      */
+    #[DataProvider('productionCallShapes')]
     public function testEachProductionCallShapeTranslatesToTheseNamedParameters(
         string $method,
         array $args,

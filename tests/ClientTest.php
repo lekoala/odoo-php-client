@@ -5,13 +5,12 @@ namespace LeKoala\OdooClient\Tests;
 use LeKoala\OdooClient\Client;
 use LeKoala\OdooClient\Config;
 use LeKoala\OdooClient\Adapters\OdooAdapterInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use LeKoala\OdooClient\Enums\OdooModel;
 use LeKoala\OdooClient\QueryOptions;
 
-/**
- * @covers \LeKoala\OdooClient\Client
- */
+#[CoversClass(\LeKoala\OdooClient\Client::class)]
 class ClientTest extends TestCase
 {
     private MockClient $client;
@@ -253,6 +252,7 @@ class ClientTest extends TestCase
     }
 }
 
+#[CoversClass(\LeKoala\OdooClient\Client::class)]
 class SpyOdooAdapter implements OdooAdapterInterface
 {
     public mixed $response = true;

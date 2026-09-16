@@ -3,11 +3,10 @@
 namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\Models\Invoice;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Models\Invoice
- */
+#[CoversClass(\LeKoala\OdooClient\Models\Invoice::class)]
 class InvoiceModelTest extends TestCase
 {
     public function testModelMappingWithPeppol(): void

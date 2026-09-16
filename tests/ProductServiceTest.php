@@ -4,12 +4,11 @@ namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\Services\ProductService;
 use LeKoala\OdooClient\Models\Tax;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use LeKoala\OdooClient\QueryOptions;
 
-/**
- * @covers \LeKoala\OdooClient\Services\ProductService
- */
+#[CoversClass(\LeKoala\OdooClient\Services\ProductService::class)]
 class ProductServiceTest extends TestCase
 {
     private MockClient $client;

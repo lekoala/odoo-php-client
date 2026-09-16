@@ -3,11 +3,10 @@
 namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\Config;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Config
- */
+#[CoversClass(\LeKoala\OdooClient\Config::class)]
 class ConfigTest extends TestCase
 {
     public function testRetryAndTimeoutDefaults(): void

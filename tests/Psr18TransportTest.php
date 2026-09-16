@@ -5,6 +5,7 @@ namespace LeKoala\OdooClient\Tests;
 use LeKoala\OdooClient\Exceptions\OdooNetworkException;
 use LeKoala\OdooClient\Http\HttpRequest;
 use LeKoala\OdooClient\Http\Psr18Transport;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
@@ -14,7 +15,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
-/** @covers \LeKoala\OdooClient\Http\Psr18Transport */
+#[CoversClass(\LeKoala\OdooClient\Http\Psr18Transport::class)]
 final class Psr18TransportTest extends TestCase
 {
     public function testMapsPackageRequestAndPsrResponse(): void
@@ -23,7 +24,7 @@ final class Psr18TransportTest extends TestCase
         $request->expects(self::once())->method('withHeader')->with('Content-Type', 'application/json')
             ->willReturnSelf();
 
-        $bodyStream = $this->createMock(StreamInterface::class);
+        $bodyStream = $this->createStub(StreamInterface::class);
         $request->expects(self::once())->method('withBody')->with($bodyStream)->willReturnSelf();
 
         $requestFactory = $this->createMock(RequestFactoryInterface::class);
@@ -34,9 +35,9 @@ final class Psr18TransportTest extends TestCase
         $streamFactory = $this->createMock(StreamFactoryInterface::class);
         $streamFactory->expects(self::once())->method('createStream')->with('{}')->willReturn($bodyStream);
 
-        $responseBody = $this->createMock(StreamInterface::class);
+        $responseBody = $this->createStub(StreamInterface::class);
         $responseBody->method('__toString')->willReturn('{"ok":true}');
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $response->method('getHeaders')->willReturn(['Content-Type' => ['application/json']]);
         $response->method('getBody')->willReturn($responseBody);
@@ -59,11 +60,11 @@ final class Psr18TransportTest extends TestCase
 
     public function testMapsPsrClientFailureToOdooNetworkException(): void
     {
-        $request = $this->createMock(RequestInterface::class);
-        $requestFactory = $this->createMock(RequestFactoryInterface::class);
+        $request = $this->createStub(RequestInterface::class);
+        $requestFactory = $this->createStub(RequestFactoryInterface::class);
         $requestFactory->method('createRequest')->willReturn($request);
 
-        $client = $this->createMock(ClientInterface::class);
+        $client = $this->createStub(ClientInterface::class);
         $client->method('sendRequest')->willThrowException(
             new class ('connection failed for https://odoo.test/pdf?access_token=secret&download=1') extends \RuntimeException implements ClientExceptionInterface {
             }
@@ -73,7 +74,7 @@ final class Psr18TransportTest extends TestCase
             (new Psr18Transport(
                 $client,
                 $requestFactory,
-                $this->createMock(StreamFactoryInterface::class),
+                $this->createStub(StreamFactoryInterface::class),
             ))->send(new HttpRequest('GET', 'https://odoo.example.test'));
             self::fail('A PSR-18 failure must be mapped');
         } catch (OdooNetworkException $exception) {

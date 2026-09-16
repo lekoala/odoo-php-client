@@ -7,9 +7,10 @@ use LeKoala\OdooClient\Http\HttpClient;
 use LeKoala\OdooClient\Http\HttpRequest;
 use LeKoala\OdooClient\Http\HttpResponse;
 use LeKoala\OdooClient\Tests\Support\RecordingTransport;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/** @covers \LeKoala\OdooClient\Http\HttpClient */
+#[CoversClass(\LeKoala\OdooClient\Http\HttpClient::class)]
 final class HttpClientTest extends TestCase
 {
     public function testCrossOriginRedirectStripsCredentials(): void

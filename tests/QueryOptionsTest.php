@@ -4,9 +4,10 @@ namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\QueryOptions;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/** @covers \LeKoala\OdooClient\QueryOptions */
+#[CoversClass(\LeKoala\OdooClient\QueryOptions::class)]
 final class QueryOptionsTest extends TestCase
 {
     public function testIntegerCompatibilityCreatesALimitedQuery(): void

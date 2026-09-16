@@ -3,11 +3,10 @@
 namespace LeKoala\OdooClient\Tests;
 
 use LeKoala\OdooClient\Inputs\CustomerInput;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \LeKoala\OdooClient\Inputs\CustomerInput
- */
+#[CoversClass(\LeKoala\OdooClient\Inputs\CustomerInput::class)]
 class CustomerInputTest extends TestCase
 {
     public function testToArrayIncludesBasicFields(): void

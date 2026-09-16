@@ -7,12 +7,11 @@ use LeKoala\OdooClient\Models\Subscription;
 use LeKoala\OdooClient\Models\SubscriptionPlan;
 use LeKoala\OdooClient\Inputs\SubscriptionInput;
 use LeKoala\OdooClient\Events\SubscriptionCancelledEvent;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use LeKoala\OdooClient\QueryOptions;
 
-/**
- * @covers \LeKoala\OdooClient\Services\SubscriptionService
- */
+#[CoversClass(\LeKoala\OdooClient\Services\SubscriptionService::class)]
 class SubscriptionServiceTest extends TestCase
 {
     private MockClient $client;
