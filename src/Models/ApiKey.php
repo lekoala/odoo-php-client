@@ -2,6 +2,8 @@
 
 namespace LeKoala\OdooClient\Models;
 
+use LeKoala\OdooClient\OdooValue;
+
 final class ApiKey
 {
     public function __construct(
@@ -13,18 +15,28 @@ final class ApiKey
     }
 
     /**
+     * Decode an Odoo `res.users.apikeys` row.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function fromOdoo(array $row): self
+    {
+        return self::fromRow($row);
+    }
+
+    /**
      * @param array<string, mixed> $row
      */
     public static function fromRow(array $row): self
     {
-        $scope = $row['scope'] ?? null;
-        $expiry = $row['expiration_date'] ?? null;
+        $scope = OdooValue::nullableString($row['scope'] ?? null);
+        $expiry = OdooValue::nullableString($row['expiration_date'] ?? null);
 
         return new self(
-            isset($row['id']) && is_numeric($row['id']) ? (int) $row['id'] : 0,
-            isset($row['name']) && is_string($row['name']) ? $row['name'] : '',
-            (is_string($scope) && $scope !== '') ? $scope : null,
-            (is_string($expiry) && $expiry !== '') ? $expiry : null
+            OdooValue::id($row['id'] ?? null) ?? 0,
+            OdooValue::stringOr($row['name'] ?? null),
+            ($scope === null || $scope === '') ? null : $scope,
+            ($expiry === null || $expiry === '') ? null : $expiry
         );
     }
 

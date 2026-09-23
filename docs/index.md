@@ -316,6 +316,35 @@ $domain = Domain::build()
     ->get();
 ```
 
+For nested combinations, prefer the pure combinators over chaining
+`where()` after `orWhere()` (whose implicit top-level AND is easy to
+misread):
+
+```php
+// state = posted AND (payment_state = partial OR payment_state = not_paid)
+$domain = Domain::all(
+    Domain::condition('state', '=', 'posted'),
+    Domain::any(
+        Domain::condition('payment_state', '=', 'partial'),
+        Domain::condition('payment_state', '=', 'not_paid'),
+    ),
+);
+```
+
+---
+
+## Decoding Odoo rows (`OdooValue`, `::fromOdoo()`)
+
+Odoo encodes empty relations as `false` and many2one values as
+`[id, name]` pairs. `OdooValue` centralizes that decoding
+(`many2oneId()`, `many2oneName()`, `ids()`, `nullableString()`, ...);
+it normalizes the wire representation only — DTO defaults stay in the
+DTOs. Prefer the semantic entry point when hydrating models:
+
+```php
+$customer = Customer::fromOdoo($row); // same data as new Customer($row)
+```
+
 ---
 
 ## Direct Client Usage (No Services)

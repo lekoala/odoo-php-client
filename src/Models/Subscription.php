@@ -2,6 +2,8 @@
 
 namespace LeKoala\OdooClient\Models;
 
+use LeKoala\OdooClient\OdooValue;
+
 class Subscription
 {
     public ?int $id;
@@ -32,53 +34,62 @@ class Subscription
     public array $rawData;
 
     /**
+     * Decode an Odoo `sale.order` subscription row.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function fromOdoo(array $row): self
+    {
+        return new self($row);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function __construct(array $data)
     {
         $this->rawData = $data;
-        $this->id = isset($data['id']) && is_int($data['id']) ? $data['id'] : null;
-        $this->name = isset($data['name']) && is_string($data['name']) ? $data['name'] : '';
+        $this->id = OdooValue::id($data['id'] ?? null);
+        $this->name = OdooValue::stringOr($data['name'] ?? null);
 
         // Partner mapping
-        $this->partnerId = (isset($data['partner_id']) && is_array($data['partner_id']) && isset($data['partner_id'][0]) && is_int($data['partner_id'][0])) ? $data['partner_id'][0] : (isset($data['partner_id']) && is_int($data['partner_id']) ? $data['partner_id'] : 0);
-        $this->partnerName = (isset($data['partner_id']) && is_array($data['partner_id']) && isset($data['partner_id'][1]) && is_string($data['partner_id'][1])) ? $data['partner_id'][1] : '';
+        $this->partnerId = OdooValue::many2oneIdOr($data['partner_id'] ?? null, 0);
+        $this->partnerName = OdooValue::many2oneName($data['partner_id'] ?? null) ?? '';
 
-        $this->planId = (isset($data['plan_id']) && is_array($data['plan_id']) && isset($data['plan_id'][0]) && is_int($data['plan_id'][0])) ? $data['plan_id'][0] : (isset($data['plan_id']) && is_int($data['plan_id']) ? $data['plan_id'] : null);
-        $this->planName = (isset($data['plan_id']) && is_array($data['plan_id']) && isset($data['plan_id'][1]) && is_string($data['plan_id'][1])) ? $data['plan_id'][1] : null;
+        $this->planId = OdooValue::many2oneId($data['plan_id'] ?? null);
+        $this->planName = OdooValue::many2oneName($data['plan_id'] ?? null);
 
         // sale.order states: draft, sent, sale, cancel
-        $this->state = isset($data['state']) && is_string($data['state']) ? $data['state'] : 'draft';
-        $this->subscriptionState = isset($data['subscription_state']) && is_string($data['subscription_state'])
-            ? $data['subscription_state']
-            : null;
+        $this->state = OdooValue::stringOr($data['state'] ?? null, 'draft');
+        $this->subscriptionState = OdooValue::nullableString($data['subscription_state'] ?? null);
 
         // Date mappings for sale.order (subscriptions)
-        $this->startDate = isset($data['start_date']) && is_string($data['start_date']) ? $data['start_date'] : (isset($data['date_start']) && is_string($data['date_start']) ? $data['date_start'] : null);
-        $this->endDate = isset($data['end_date']) && is_string($data['end_date']) ? $data['end_date'] : (isset($data['date_end']) && is_string($data['date_end']) ? $data['date_end'] : null);
-        $this->nextInvoiceDate = isset($data['next_invoice_date']) && is_string($data['next_invoice_date']) ? $data['next_invoice_date'] : (isset($data['recurring_next_date']) && is_string($data['recurring_next_date']) ? $data['recurring_next_date'] : null);
+        $this->startDate = OdooValue::nullableString($data['start_date'] ?? null)
+            ?? OdooValue::nullableString($data['date_start'] ?? null);
+        $this->endDate = OdooValue::nullableString($data['end_date'] ?? null)
+            ?? OdooValue::nullableString($data['date_end'] ?? null);
+        $this->nextInvoiceDate = OdooValue::nullableString($data['next_invoice_date'] ?? null)
+            ?? OdooValue::nullableString($data['recurring_next_date'] ?? null);
 
-        $this->amountTotal = isset($data['amount_total']) && is_numeric($data['amount_total']) ? (float)$data['amount_total'] : 0.0;
-        $this->currencyId = (isset($data['currency_id']) && is_array($data['currency_id']) && isset($data['currency_id'][0]) && is_int($data['currency_id'][0])) ? $data['currency_id'][0] : (isset($data['currency_id']) && is_int($data['currency_id']) ? $data['currency_id'] : null);
+        $this->amountTotal = OdooValue::floatOr($data['amount_total'] ?? null);
+        $this->currencyId = OdooValue::many2oneId($data['currency_id'] ?? null);
 
-        $lineIds = isset($data['order_line']) && is_array($data['order_line']) ? $data['order_line'] : (isset($data['recurring_invoice_line_ids']) && is_array($data['recurring_invoice_line_ids']) ? $data['recurring_invoice_line_ids'] : []);
-        $typed = [];
-        foreach ($lineIds as $lid) {
-            if (is_int($lid)) $typed[] = $lid;
-        }
-        $this->lineIds = $typed;
+        $lineIds = isset($data['order_line']) && is_array($data['order_line'])
+            ? $data['order_line']
+            : ($data['recurring_invoice_line_ids'] ?? null);
+        $this->lineIds = OdooValue::ids($lineIds);
 
         // Payment Status (Odoo 17+)
-        $this->paymentStatus = isset($data['payment_status']) && is_string($data['payment_status']) ? $data['payment_status'] : null;
-        $this->hasPaymentError = !empty($data['payment_exception']);
+        $this->paymentStatus = OdooValue::nullableString($data['payment_status'] ?? null);
+        $this->hasPaymentError = OdooValue::bool($data['payment_exception'] ?? null);
 
         // Portal Access
-        $this->accessToken = isset($data['access_token']) && is_string($data['access_token']) ? $data['access_token'] : null;
-        $this->accessUrl = isset($data['access_url']) && is_string($data['access_url']) ? $data['access_url'] : null;
+        $this->accessToken = OdooValue::nullableString($data['access_token'] ?? null);
+        $this->accessUrl = OdooValue::nullableString($data['access_url'] ?? null);
 
         // Sync timestamps
-        $this->writeDate = isset($data['write_date']) && is_string($data['write_date']) ? $data['write_date'] : null;
-        $this->createDate = isset($data['create_date']) && is_string($data['create_date']) ? $data['create_date'] : null;
+        $this->writeDate = OdooValue::nullableString($data['write_date'] ?? null);
+        $this->createDate = OdooValue::nullableString($data['create_date'] ?? null);
     }
 
     /**

@@ -61,7 +61,7 @@ class CustomerService
             $options->order,
             $options->context,
         );
-        return array_map(fn(array $data) => new Customer($data), $records);
+        return array_map(fn(array $data) => Customer::fromOdoo($data), $records);
     }
 
     /**
@@ -86,7 +86,7 @@ class CustomerService
             $this->queryFields($options),
             $options,
         ) as $record) {
-            yield new Customer($record);
+            yield Customer::fromOdoo($record);
         }
     }
 
@@ -144,7 +144,7 @@ class CustomerService
 
         /** @var array<int, array<string, mixed>> $records */
         $records = $this->client->read($this->model, [$id], $safeFields);
-        return !empty($records) ? new Customer($records[0]) : null;
+        return !empty($records) ? Customer::fromOdoo($records[0]) : null;
     }
 
     /**
@@ -366,7 +366,7 @@ class CustomerService
             $options->order ?? 'id desc',
             $options->context,
         );
-        return array_map(fn(array $data) => new PaymentToken($data), $records);
+        return array_map(fn(array $data) => PaymentToken::fromOdoo($data), $records);
     }
 
     /** @return \Generator<int, PaymentToken> */
@@ -386,7 +386,7 @@ class CustomerService
             $fields,
             $options,
         ) as $record) {
-            yield new PaymentToken($record);
+            yield PaymentToken::fromOdoo($record);
         }
     }
 }

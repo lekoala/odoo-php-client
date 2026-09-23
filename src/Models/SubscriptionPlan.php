@@ -2,6 +2,8 @@
 
 namespace LeKoala\OdooClient\Models;
 
+use LeKoala\OdooClient\OdooValue;
+
 /**
  * Represents a Subscription Plan (Recurring Plan) in Odoo.
  *
@@ -15,14 +17,24 @@ class SubscriptionPlan
     public string $billingPeriodUnit; // unit (e.g., 'month', 'year')
 
     /**
+     * Decode an Odoo `sale.subscription.plan` row.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function fromOdoo(array $row): self
+    {
+        return new self($row);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function __construct(array $data)
     {
-        $this->id = isset($data['id']) && is_int($data['id']) ? $data['id'] : 0;
-        $this->name = isset($data['name']) && is_string($data['name']) ? $data['name'] : '';
-        $this->billingPeriodValue = isset($data['billing_period_value']) && is_numeric($data['billing_period_value']) ? (int)$data['billing_period_value'] : 1;
-        $this->billingPeriodUnit = isset($data['billing_period_unit']) && is_string($data['billing_period_unit']) ? $data['billing_period_unit'] : 'month';
+        $this->id = OdooValue::id($data['id'] ?? null) ?? 0;
+        $this->name = OdooValue::stringOr($data['name'] ?? null);
+        $this->billingPeriodValue = isset($data['billing_period_value']) && is_numeric($data['billing_period_value']) ? (int) $data['billing_period_value'] : 1;
+        $this->billingPeriodUnit = OdooValue::stringOr($data['billing_period_unit'] ?? null, 'month');
     }
 
     /**

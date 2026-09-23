@@ -2,6 +2,8 @@
 
 namespace LeKoala\OdooClient\Models;
 
+use LeKoala\OdooClient\OdooValue;
+
 /**
  * Represents a Tax configuration in Odoo.
  *
@@ -16,14 +18,24 @@ class Tax
     public string $amountType; // 'percent', 'fixed', etc.
 
     /**
+     * Decode an Odoo `account.tax` row.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function fromOdoo(array $row): self
+    {
+        return new self($row);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function __construct(array $data)
     {
-        $this->id = isset($data['id']) && is_int($data['id']) ? $data['id'] : 0;
-        $this->name = isset($data['name']) && is_string($data['name']) ? $data['name'] : '';
-        $this->amount = isset($data['amount']) && is_numeric($data['amount']) ? (float)$data['amount'] : 0.0;
-        $this->typeTaxUse = isset($data['type_tax_use']) && is_string($data['type_tax_use']) ? $data['type_tax_use'] : 'sale';
-        $this->amountType = isset($data['amount_type']) && is_string($data['amount_type']) ? $data['amount_type'] : 'percent';
+        $this->id = OdooValue::id($data['id'] ?? null) ?? 0;
+        $this->name = OdooValue::stringOr($data['name'] ?? null);
+        $this->amount = OdooValue::floatOr($data['amount'] ?? null);
+        $this->typeTaxUse = OdooValue::stringOr($data['type_tax_use'] ?? null, 'sale');
+        $this->amountType = OdooValue::stringOr($data['amount_type'] ?? null, 'percent');
     }
 }

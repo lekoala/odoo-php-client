@@ -47,7 +47,7 @@ class ProductService
             $options->order,
             $options->context,
         );
-        return array_map(fn(array $data) => new Product($data), $records);
+        return array_map(fn(array $data) => Product::fromOdoo($data), $records);
     }
 
     /**
@@ -63,7 +63,7 @@ class ProductService
             $this->queryFields($this->model, $options),
             $options,
         ) as $record) {
-            yield new Product($record);
+            yield Product::fromOdoo($record);
         }
     }
 
@@ -86,7 +86,7 @@ class ProductService
     {
         /** @var array<int, array<string, mixed>> $records */
         $records = $this->client->read($this->model, [$id]);
-        return !empty($records) ? new Product($records[0]) : null;
+        return !empty($records) ? Product::fromOdoo($records[0]) : null;
     }
 
     /**
@@ -153,7 +153,7 @@ class ProductService
             $options->order,
             $options->context,
         );
-        return array_map(fn(array $data) => new Tax($data), $records);
+        return array_map(fn(array $data) => Tax::fromOdoo($data), $records);
     }
 
     /** @return \Generator<int, Tax> */
@@ -166,7 +166,7 @@ class ProductService
             $this->queryFields('account.tax', $options),
             $options,
         ) as $record) {
-            yield new Tax($record);
+            yield Tax::fromOdoo($record);
         }
     }
 }

@@ -2,6 +2,8 @@
 
 namespace LeKoala\OdooClient\Models;
 
+use LeKoala\OdooClient\OdooValue;
+
 /**
  * Represents a Customer (Partner) in Odoo.
  *
@@ -45,44 +47,54 @@ class Customer
     public array $rawData;
 
     /**
+     * Decode an Odoo `res.partner` row.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function fromOdoo(array $row): self
+    {
+        return new self($row);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function __construct(array $data)
     {
         $this->rawData = $data;
-        $this->id = isset($data['id']) && is_int($data['id']) ? $data['id'] : null;
-        $this->name = isset($data['name']) && is_string($data['name']) ? $data['name'] : '';
-        $this->email = isset($data['email']) && is_string($data['email']) ? $data['email'] : null;
-        $this->phone = isset($data['phone']) && is_string($data['phone']) ? $data['phone'] : null;
-        $this->mobile = isset($data['mobile']) && is_string($data['mobile']) ? $data['mobile'] : null;
-        $this->vat = isset($data['vat']) && is_string($data['vat']) ? $data['vat'] : null;
-        $this->street = isset($data['street']) && is_string($data['street']) ? $data['street'] : null;
-        $this->street2 = isset($data['street2']) && is_string($data['street2']) ? $data['street2'] : null;
-        $this->city = isset($data['city']) && is_string($data['city']) ? $data['city'] : null;
-        $this->zip = isset($data['zip']) && is_string($data['zip']) ? $data['zip'] : null;
-        $this->countryId = (isset($data['country_id']) && is_array($data['country_id']) && isset($data['country_id'][0]) && is_int($data['country_id'][0])) ? $data['country_id'][0] : (isset($data['country_id']) && is_int($data['country_id']) ? $data['country_id'] : null);
-        $this->countryName = (isset($data['country_id']) && is_array($data['country_id']) && isset($data['country_id'][1]) && is_string($data['country_id'][1])) ? $data['country_id'][1] : null;
-        $this->stateId = (isset($data['state_id']) && is_array($data['state_id']) && isset($data['state_id'][0]) && is_int($data['state_id'][0])) ? $data['state_id'][0] : (isset($data['state_id']) && is_int($data['state_id']) ? $data['state_id'] : null);
-        $this->stateName = (isset($data['state_id']) && is_array($data['state_id']) && isset($data['state_id'][1]) && is_string($data['state_id'][1])) ? $data['state_id'][1] : null;
-        $this->isCompany = !empty($data['is_company']);
+        $this->id = OdooValue::id($data['id'] ?? null);
+        $this->name = OdooValue::stringOr($data['name'] ?? null);
+        $this->email = OdooValue::nullableString($data['email'] ?? null);
+        $this->phone = OdooValue::nullableString($data['phone'] ?? null);
+        $this->mobile = OdooValue::nullableString($data['mobile'] ?? null);
+        $this->vat = OdooValue::nullableString($data['vat'] ?? null);
+        $this->street = OdooValue::nullableString($data['street'] ?? null);
+        $this->street2 = OdooValue::nullableString($data['street2'] ?? null);
+        $this->city = OdooValue::nullableString($data['city'] ?? null);
+        $this->zip = OdooValue::nullableString($data['zip'] ?? null);
+        $this->countryId = OdooValue::many2oneId($data['country_id'] ?? null);
+        $this->countryName = OdooValue::many2oneName($data['country_id'] ?? null);
+        $this->stateId = OdooValue::many2oneId($data['state_id'] ?? null);
+        $this->stateName = OdooValue::many2oneName($data['state_id'] ?? null);
+        $this->isCompany = OdooValue::bool($data['is_company'] ?? null);
         $this->active = !isset($data['active']) || !empty($data['active']);
-        $this->ref = isset($data['ref']) && is_string($data['ref']) ? $data['ref'] : null;
-        $this->website = isset($data['website']) && is_string($data['website']) ? $data['website'] : null;
-        $this->lang = isset($data['lang']) && is_string($data['lang']) ? $data['lang'] : null;
-        $this->comment = isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : null;
+        $this->ref = OdooValue::nullableString($data['ref'] ?? null);
+        $this->website = OdooValue::nullableString($data['website'] ?? null);
+        $this->lang = OdooValue::nullableString($data['lang'] ?? null);
+        $this->comment = OdooValue::nullableString($data['comment'] ?? null);
 
         // PEPPOL fields
-        $this->peppolEas = isset($data['peppol_eas']) && is_string($data['peppol_eas']) ? $data['peppol_eas'] : null;
-        $this->peppolEndpoint = isset($data['peppol_endpoint']) && is_string($data['peppol_endpoint']) ? $data['peppol_endpoint'] : null;
-        $this->invoiceEdiFormat = isset($data['invoice_edi_format']) && is_string($data['invoice_edi_format']) ? $data['invoice_edi_format'] : null;
-        $this->peppolVerificationState = isset($data['peppol_verification_state']) && is_string($data['peppol_verification_state']) ? $data['peppol_verification_state'] : null;
+        $this->peppolEas = OdooValue::nullableString($data['peppol_eas'] ?? null);
+        $this->peppolEndpoint = OdooValue::nullableString($data['peppol_endpoint'] ?? null);
+        $this->invoiceEdiFormat = OdooValue::nullableString($data['invoice_edi_format'] ?? null);
+        $this->peppolVerificationState = OdooValue::nullableString($data['peppol_verification_state'] ?? null);
 
         // Payment Methods
-        $this->paymentTokenCount = isset($data['payment_token_count']) && is_numeric($data['payment_token_count']) ? (int)$data['payment_token_count'] : 0;
+        $this->paymentTokenCount = isset($data['payment_token_count']) && is_numeric($data['payment_token_count']) ? (int) $data['payment_token_count'] : 0;
 
         // Sync timestamps
-        $this->writeDate = isset($data['write_date']) && is_string($data['write_date']) ? $data['write_date'] : null;
-        $this->createDate = isset($data['create_date']) && is_string($data['create_date']) ? $data['create_date'] : null;
+        $this->writeDate = OdooValue::nullableString($data['write_date'] ?? null);
+        $this->createDate = OdooValue::nullableString($data['create_date'] ?? null);
     }
 
     /**

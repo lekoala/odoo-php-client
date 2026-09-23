@@ -71,6 +71,64 @@ class Domain
     }
 
     /**
+     * Build a single domain leaf.
+     *
+     * @param mixed $value
+     * @return array{string, string, mixed}
+     */
+    public static function condition(string $field, string $operator, $value): array
+    {
+        return [$field, $operator, $value];
+    }
+
+    /**
+     * Combine domain parts with AND (pure, no builder state).
+     *
+     * all() → [], all($a) → $a, all($a, $b) → ['&', $a, $b],
+     * all($a, $b, $c) → ['&', '&', $a, $b, $c].
+     *
+     * @param array<int, mixed> ...$parts Leaves or already-combined sub-domains.
+     * @return array<int, mixed>
+     */
+    public static function all(array ...$parts): array
+    {
+        return self::combine('&', ...$parts);
+    }
+
+    /**
+     * Combine domain parts with OR (pure, no builder state).
+     *
+     * any($a, $b, $c) → ['|', '|', $a, $b, $c].
+     *
+     * @param array<int, mixed> ...$parts Leaves or already-combined sub-domains.
+     * @return array<int, mixed>
+     */
+    public static function any(array ...$parts): array
+    {
+        return self::combine('|', ...$parts);
+    }
+
+    /**
+     * @param array<int, mixed> ...$parts
+     * @return array<int, mixed>
+     */
+    private static function combine(string $operator, array ...$parts): array
+    {
+        $count = count($parts);
+        if ($count === 0) {
+            return [];
+        }
+        if ($count === 1) {
+            return $parts[0];
+        }
+
+        /** @var array<int, mixed> $combined */
+        $combined = array_merge(array_fill(0, $count - 1, $operator), $parts);
+
+        return $combined;
+    }
+
+    /**
      * Return the domain as a flat Odoo-compatible array.
      * @return array<int, mixed>
      */

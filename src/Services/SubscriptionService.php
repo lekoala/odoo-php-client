@@ -55,7 +55,7 @@ class SubscriptionService
             $options->order,
             $options->context,
         );
-        return array_map(fn(array $data) => new Subscription($data), $records);
+        return array_map(fn(array $data) => Subscription::fromOdoo($data), $records);
     }
 
     /**
@@ -74,7 +74,7 @@ class SubscriptionService
             $this->queryFields($options),
             $options,
         ) as $record) {
-            yield new Subscription($record);
+            yield Subscription::fromOdoo($record);
         }
     }
 
@@ -136,7 +136,7 @@ class SubscriptionService
         $safeFields = $this->client->getSafeFields($this->model, $fields);
         /** @var array<int, array<string, mixed>> $records */
         $records = $this->client->read($this->model, [$id], $safeFields);
-        return !empty($records) ? new Subscription($records[0]) : null;
+        return !empty($records) ? Subscription::fromOdoo($records[0]) : null;
     }
 
     /**
@@ -247,7 +247,7 @@ class SubscriptionService
             $options->order,
             $options->context,
         );
-        return array_map(fn(array $data) => new SubscriptionPlan($data), $records);
+        return array_map(fn(array $data) => SubscriptionPlan::fromOdoo($data), $records);
     }
 
     /** @return \Generator<int, SubscriptionPlan> */
@@ -258,7 +258,7 @@ class SubscriptionService
             ? []
             : $this->client->getSafeFields('sale.subscription.plan', $options->fields, $options->context);
         foreach ($this->client->iterateSearchRead('sale.subscription.plan', [], $fields, $options) as $record) {
-            yield new SubscriptionPlan($record);
+            yield SubscriptionPlan::fromOdoo($record);
         }
     }
 

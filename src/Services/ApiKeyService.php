@@ -28,7 +28,7 @@ class ApiKeyService
         /** @var array<int, array<string, mixed>> $rows */
         $rows = $this->client->searchRead('res.users.apikeys', [], $fields, 0, 0, 'id desc');
 
-        return array_map(static fn(array $row): ApiKey => ApiKey::fromRow($row), $rows);
+        return array_map(static fn(array $row): ApiKey => ApiKey::fromOdoo($row), $rows);
     }
 
     /**
@@ -55,7 +55,7 @@ class ApiKeyService
 
         $row = $rows[0] ?? null;
 
-        return is_array($row) ? ApiKey::fromRow($row) : null;
+        return is_array($row) ? ApiKey::fromOdoo($row) : null;
     }
 
     /**

@@ -328,7 +328,7 @@ class PaymentService
 
         $transactions = [];
         foreach ($rows as $row) {
-            $transactions[] = new PaymentTransaction($row);
+            $transactions[] = PaymentTransaction::fromOdoo($row);
         }
 
         return $transactions;

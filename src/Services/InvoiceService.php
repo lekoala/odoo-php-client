@@ -61,7 +61,7 @@ class InvoiceService
             $options->order,
             $options->context,
         );
-        return array_map(fn(array $data) => new Invoice($data), $records);
+        return array_map(fn(array $data) => Invoice::fromOdoo($data), $records);
     }
 
     /**
@@ -80,7 +80,7 @@ class InvoiceService
             $this->queryFields($options),
             $options,
         ) as $record) {
-            yield new Invoice($record);
+            yield Invoice::fromOdoo($record);
         }
     }
 
@@ -147,7 +147,7 @@ class InvoiceService
 
         /** @var array<int, array<string, mixed>> $records */
         $records = $this->client->read($this->model, [$id], $safeFields);
-        return !empty($records) ? new Invoice($records[0]) : null;
+        return !empty($records) ? Invoice::fromOdoo($records[0]) : null;
     }
 
     /**

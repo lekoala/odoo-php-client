@@ -2,6 +2,8 @@
 
 namespace LeKoala\OdooClient\Models;
 
+use LeKoala\OdooClient\OdooValue;
+
 class Invoice
 {
     /** @var array<string, mixed> */
@@ -37,42 +39,55 @@ class Invoice
     public ?string $createDate;
 
     /**
+     * Decode an Odoo `account.move` row.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function fromOdoo(array $row): self
+    {
+        return new self($row);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function __construct(array $data)
     {
         $this->rawData = $data;
-        $this->id = isset($data['id']) && is_int($data['id']) ? $data['id'] : null;
-        $this->name = isset($data['name']) && is_string($data['name']) ? $data['name'] : '';
-        $this->partnerId = (isset($data['partner_id']) && is_array($data['partner_id']) && isset($data['partner_id'][0]) && is_int($data['partner_id'][0])) ? $data['partner_id'][0] : (isset($data['partner_id']) && is_int($data['partner_id']) ? $data['partner_id'] : 0);
-        $this->partnerName = (isset($data['partner_id']) && is_array($data['partner_id']) && isset($data['partner_id'][1]) && is_string($data['partner_id'][1])) ? $data['partner_id'][1] : '';
-        $this->state = isset($data['state']) && is_string($data['state']) && $data['state'] !== '' ? $data['state'] : 'draft';
-        $this->moveType = isset($data['move_type']) && is_string($data['move_type']) && $data['move_type'] !== '' ? $data['move_type'] : 'out_invoice';
-        $this->invoiceDate = isset($data['invoice_date']) && is_string($data['invoice_date']) ? $data['invoice_date'] : null;
-        $this->invoiceDateDue = isset($data['invoice_date_due']) && is_string($data['invoice_date_due']) ? $data['invoice_date_due'] : null;
-        $this->amountTotal = isset($data['amount_total']) && is_numeric($data['amount_total']) ? (float)$data['amount_total'] : 0.0;
-        $this->amountUntaxed = isset($data['amount_untaxed']) && is_numeric($data['amount_untaxed']) ? (float)$data['amount_untaxed'] : 0.0;
-        $this->amountTax = isset($data['amount_tax']) && is_numeric($data['amount_tax']) ? (float)$data['amount_tax'] : 0.0;
-        $this->amountResidual = isset($data['amount_residual']) && is_numeric($data['amount_residual']) ? (float)$data['amount_residual'] : 0.0;
-        $this->paymentState = isset($data['payment_state']) && is_string($data['payment_state']) && $data['payment_state'] !== '' ? $data['payment_state'] : 'not_paid';
+        $this->id = OdooValue::id($data['id'] ?? null);
+        $this->name = OdooValue::stringOr($data['name'] ?? null);
+        $this->partnerId = OdooValue::many2oneIdOr($data['partner_id'] ?? null, 0);
+        $this->partnerName = OdooValue::many2oneName($data['partner_id'] ?? null) ?? '';
+        $state = OdooValue::nullableString($data['state'] ?? null);
+        $this->state = ($state === null || $state === '') ? 'draft' : $state;
+        $moveType = OdooValue::nullableString($data['move_type'] ?? null);
+        $this->moveType = ($moveType === null || $moveType === '') ? 'out_invoice' : $moveType;
+        $this->invoiceDate = OdooValue::nullableString($data['invoice_date'] ?? null);
+        $this->invoiceDateDue = OdooValue::nullableString($data['invoice_date_due'] ?? null);
+        $this->amountTotal = OdooValue::floatOr($data['amount_total'] ?? null);
+        $this->amountUntaxed = OdooValue::floatOr($data['amount_untaxed'] ?? null);
+        $this->amountTax = OdooValue::floatOr($data['amount_tax'] ?? null);
+        $this->amountResidual = OdooValue::floatOr($data['amount_residual'] ?? null);
+        $paymentState = OdooValue::nullableString($data['payment_state'] ?? null);
+        $this->paymentState = ($paymentState === null || $paymentState === '') ? 'not_paid' : $paymentState;
 
-        $this->currencyId = (isset($data['currency_id']) && is_array($data['currency_id']) && isset($data['currency_id'][0]) && is_int($data['currency_id'][0])) ? $data['currency_id'][0] : (isset($data['currency_id']) && is_int($data['currency_id']) ? $data['currency_id'] : null);
-        $this->currencyName = (isset($data['currency_id']) && is_array($data['currency_id']) && isset($data['currency_id'][1]) && is_string($data['currency_id'][1])) ? $data['currency_id'][1] : null;
+        $this->currencyId = OdooValue::many2oneId($data['currency_id'] ?? null);
+        $this->currencyName = OdooValue::many2oneName($data['currency_id'] ?? null);
 
-        $this->ref = isset($data['ref']) && is_string($data['ref']) ? $data['ref'] : null;
-        $this->narration = isset($data['narration']) && is_string($data['narration']) ? $data['narration'] : null;
+        $this->ref = OdooValue::nullableString($data['ref'] ?? null);
+        $this->narration = OdooValue::nullableString($data['narration'] ?? null);
 
         // PEPPOL fields
-        $this->peppolMoveState = isset($data['peppol_move_state']) && is_string($data['peppol_move_state']) ? $data['peppol_move_state'] : null;
-        $this->peppolError = isset($data['edi_error_message']) && is_string($data['edi_error_message']) ? $data['edi_error_message'] : null;
+        $this->peppolMoveState = OdooValue::nullableString($data['peppol_move_state'] ?? null);
+        $this->peppolError = OdooValue::nullableString($data['edi_error_message'] ?? null);
 
         // Portal Access
-        $this->accessToken = isset($data['access_token']) && is_string($data['access_token']) ? $data['access_token'] : null;
-        $this->accessUrl = isset($data['access_url']) && is_string($data['access_url']) ? $data['access_url'] : null;
+        $this->accessToken = OdooValue::nullableString($data['access_token'] ?? null);
+        $this->accessUrl = OdooValue::nullableString($data['access_url'] ?? null);
 
         // Sync timestamps
-        $this->writeDate = isset($data['write_date']) && is_string($data['write_date']) ? $data['write_date'] : null;
-        $this->createDate = isset($data['create_date']) && is_string($data['create_date']) ? $data['create_date'] : null;
+        $this->writeDate = OdooValue::nullableString($data['write_date'] ?? null);
+        $this->createDate = OdooValue::nullableString($data['create_date'] ?? null);
     }
 
     /**
