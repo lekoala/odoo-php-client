@@ -153,7 +153,8 @@ class DomainTest extends TestCase
 
     public function testAnyContract(): void
     {
-        self::assertSame([], Domain::any());
+        // OR of zero conditions is FALSE, mirroring Odoo's FALSE_DOMAIN.
+        self::assertEquals([[0, '=', 1]], Domain::any());
 
         $a = Domain::condition('a', '=', 1);
         self::assertEquals([$a], Domain::any($a));
@@ -211,6 +212,30 @@ class DomainTest extends TestCase
         );
 
         self::assertEquals($inner, Domain::all($inner));
+    }
+
+    public function testEmptyAnyIsFalseAndNestsFlat(): void
+    {
+        self::assertEquals([[0, '=', 1]], Domain::any());
+
+        // A AND FALSE → flat, still a valid Odoo domain.
+        $domain = Domain::all(
+            Domain::condition('A', '=', 1),
+            Domain::any(),
+        );
+
+        self::assertEquals([
+            '&',
+            ['A', '=', 1],
+            [0, '=', 1],
+        ], $domain);
+    }
+
+    public function testBooleanConstantsAreLeaves(): void
+    {
+        // A raw FALSE constant passed directly is wrapped, not spliced.
+        self::assertEquals([[0, '=', 1]], Domain::all([0, '=', 1]));
+        self::assertEquals([[1, '=', 1]], Domain::any([1, '=', 1]));
     }
 
     public function testExplicitCombinatorsAvoidWhereAfterOrAmbiguity(): void

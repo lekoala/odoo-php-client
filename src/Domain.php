@@ -84,7 +84,8 @@ class Domain
     /**
      * Combine domain parts with AND (pure, no builder state).
      *
-     * all() → [], all($a) → [$a], all($a, $b) → ['&', $a, $b],
+     * all() → [] (TRUE: AND of zero conditions matches everything),
+     * all($a) → [$a], all($a, $b) → ['&', $a, $b],
      * all($a, $b, $c) → ['&', '&', $a, $b, $c].
      *
      * Sub-domains are spliced (flat prefix notation), never nested:
@@ -101,7 +102,9 @@ class Domain
     /**
      * Combine domain parts with OR (pure, no builder state).
      *
-     * any() → [], any($a) → [$a], any($a, $b, $c) → ['|', '|', $a, $b, $c].
+     * any() → [[0, '=', 1]] (FALSE: OR of zero conditions matches nothing,
+     * mirroring Odoo's FALSE_DOMAIN), any($a) → [$a],
+     * any($a, $b, $c) → ['|', '|', $a, $b, $c].
      *
      * Sub-domains are spliced (flat prefix notation), never nested.
      *
@@ -119,6 +122,12 @@ class Domain
      */
     private static function combine(string $operator, array ...$parts): array
     {
+        if ($parts === []) {
+            // Mirrors Odoo: AND of zero conditions is TRUE ([]),
+            // OR of zero conditions is FALSE ([(0, '=', 1)]).
+            return $operator === '&' ? [] : [[0, '=', 1]];
+        }
+
         /** @var array<int, array<int, mixed>> $domains */
         $domains = [];
         foreach ($parts as $part) {
@@ -150,8 +159,10 @@ class Domain
 
     /**
      * A leaf is a single [field, operator, value] condition, as built by
-     * {@see self::condition()}. Anything else (a flat prefix list such as
-     * ['|', $a, $b] or a list of leaves) is a domain to splice, not to nest.
+     * {@see self::condition()} — including Odoo's boolean constants such as
+     * [0, '=', 1] (FALSE) and [1, '=', 1] (TRUE). Anything else (a flat
+     * prefix list such as ['|', $a, $b] or a list of leaves) is a domain
+     * to splice, not to nest.
      *
      * @param array<int, mixed> $part
      */
@@ -160,7 +171,7 @@ class Domain
         if (count($part) !== 3 || array_keys($part) !== [0, 1, 2]) {
             return false;
         }
-        if (!is_string($part[0]) || !is_string($part[1])) {
+        if (!is_string($part[1])) {
             return false;
         }
 
