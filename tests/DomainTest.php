@@ -142,7 +142,7 @@ class DomainTest extends TestCase
         self::assertSame([], Domain::all());
 
         $a = Domain::condition('a', '=', 1);
-        self::assertSame($a, Domain::all($a));
+        self::assertEquals([$a], Domain::all($a));
 
         $b = Domain::condition('b', '=', 2);
         self::assertEquals(['&', $a, $b], Domain::all($a, $b));
@@ -156,7 +156,7 @@ class DomainTest extends TestCase
         self::assertSame([], Domain::any());
 
         $a = Domain::condition('a', '=', 1);
-        self::assertSame($a, Domain::any($a));
+        self::assertEquals([$a], Domain::any($a));
 
         $b = Domain::condition('b', '=', 2);
         $c = Domain::condition('c', '=', 3);
@@ -177,8 +177,40 @@ class DomainTest extends TestCase
         self::assertEquals([
             '&',
             ['state', '=', 'posted'],
-            ['|', ['payment_state', '=', 'partial'], ['payment_state', '=', 'not_paid']],
+            '|',
+            ['payment_state', '=', 'partial'],
+            ['payment_state', '=', 'not_paid'],
         ], $domain);
+    }
+
+    public function testNestedAnyOfAll(): void
+    {
+        // (A AND B) OR C — sub-domains are spliced, never nested.
+        $domain = Domain::any(
+            Domain::all(
+                Domain::condition('A', '=', 1),
+                Domain::condition('B', '=', 2),
+            ),
+            Domain::condition('C', '=', 3),
+        );
+
+        self::assertEquals([
+            '|',
+            '&',
+            ['A', '=', 1],
+            ['B', '=', 2],
+            ['C', '=', 3],
+        ], $domain);
+    }
+
+    public function testSingleWrappedDomainIsReturnedAsIs(): void
+    {
+        $inner = Domain::any(
+            Domain::condition('A', '=', 1),
+            Domain::condition('B', '=', 2),
+        );
+
+        self::assertEquals($inner, Domain::all($inner));
     }
 
     public function testExplicitCombinatorsAvoidWhereAfterOrAmbiguity(): void
@@ -194,7 +226,9 @@ class DomainTest extends TestCase
 
         self::assertEquals([
             '&',
-            ['|', ['A', '=', 1], ['B', '=', 2]],
+            '|',
+            ['A', '=', 1],
+            ['B', '=', 2],
             ['C', '=', 3],
         ], $domain);
     }

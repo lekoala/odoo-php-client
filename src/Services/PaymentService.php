@@ -281,13 +281,24 @@ class PaymentService
     }
 
     /**
+     * Find payments reconciled with an invoice, newest first.
+     *
+     * @param int $invoiceId Odoo account.move ID.
+     * @param string|null $communication Optional caller-owned reference
+     *   (PaymentInput::$communication, stored as account.payment memo) to
+     *   disambiguate when the invoice has several payment attempts, e.g.
+     *   when recovering from a PaymentOutcomeUnknownException.
      * @return list<int>
      */
-    public function findPaymentsForInvoice(int $invoiceId): array
+    public function findPaymentsForInvoice(int $invoiceId, ?string $communication = null): array
     {
-        $rawIds = $this->client->search('account.payment', [
+        $domain = [
             ['reconciled_invoice_ids', 'in', [$invoiceId]],
-        ], ['order' => 'create_date desc']);
+        ];
+        if ($communication !== null && $communication !== '') {
+            $domain[] = ['memo', '=', $communication];
+        }
+        $rawIds = $this->client->search('account.payment', $domain, ['order' => 'create_date desc']);
 
         $paymentIds = [];
         foreach ($rawIds as $id) {
@@ -300,14 +311,24 @@ class PaymentService
     }
 
     /**
+     * @param int $invoiceId Odoo account.move ID.
+     * @param string|null $communication Optional caller-owned reference
+     *   (PaymentInput::$communication → account.payment.register.communication
+     *   → account.payment.memo) to disambiguate when the invoice has several
+     *   attempts. Matched through the parent payment (payment_id.memo), so it
+     *   works even before the payment is reconciled with the invoice.
      * @return list<PaymentTransaction>
      */
-    public function findTransactionsForInvoice(int $invoiceId): array
+    public function findTransactionsForInvoice(int $invoiceId, ?string $communication = null): array
     {
+        $domain = [['invoice_ids', 'in', [$invoiceId]]];
+        if ($communication !== null && $communication !== '') {
+            $domain[] = ['payment_id.memo', '=', $communication];
+        }
         /** @var array<int, array<string, mixed>> $rows */
         $rows = $this->client->searchRead(
             'payment.transaction',
-            [['invoice_ids', 'in', [$invoiceId]]],
+            $domain,
             [
                 'id',
                 'state',

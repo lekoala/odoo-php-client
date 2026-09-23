@@ -160,6 +160,120 @@ class StripeServiceTest extends TestCase
         self::assertContains(['code', '=', 'sepa_direct_debit'], $methodDomain);
     }
 
+    public function testImportCardSkipsMandateFieldOnReadWhenSchemaLacksIt(): void
+    {
+        $this->client->mockResponse('payment.token', 'search', []);
+        $this->client->mockResponse('payment.method', 'search_read', [['id' => 69]]);
+        // Schema without stripe_mandate (older payment module): writes already
+        // skip the field via getSafeFields, the verification read must too.
+        $this->client->mockResponse('payment.token', 'fields_get', [
+            'payment_details' => ['type' => 'char'],
+            'partner_id' => ['type' => 'many2one'],
+            'provider_id' => ['type' => 'many2one'],
+            'payment_method_id' => ['type' => 'many2one'],
+            'provider_ref' => ['type' => 'char'],
+            'stripe_payment_method' => ['type' => 'char'],
+            'active' => ['type' => 'boolean'],
+        ]);
+        $this->client->mockResponse('payment.token', 'create', 101);
+        $this->client->mockResponse('payment.token', 'read', [[
+            'id' => 101,
+            'provider_ref' => 'cus_test',
+            'stripe_payment_method' => 'pm_test',
+        ]]);
+
+        $id = $this->service->importStripeToken(42, 'cus_test', 'pm_test', '.... 4242', 7);
+
+        self::assertSame(101, $id);
+
+        $readCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['model'] === 'payment.token' && $call['method'] === 'read') {
+                $readCall = $call;
+            }
+        }
+        self::assertNotNull($readCall);
+        /** @var array<int, string> $fields */
+        $fields = $readCall['params']['fields'] ?? [];
+        self::assertContains('provider_ref', $fields);
+        self::assertContains('stripe_payment_method', $fields);
+        self::assertNotContains('stripe_mandate', $fields);
+    }
+
+    public function testImportWithMandateStillReadsMandateWhenSchemaHasIt(): void
+    {
+        $this->client->mockResponse('payment.token', 'search', []);
+        $this->client->mockResponse('payment.method', 'search_read', [['id' => 70]]);
+        $this->client->mockResponse('payment.token', 'fields_get', [
+            'payment_details' => ['type' => 'char'],
+            'partner_id' => ['type' => 'many2one'],
+            'provider_id' => ['type' => 'many2one'],
+            'payment_method_id' => ['type' => 'many2one'],
+            'provider_ref' => ['type' => 'char'],
+            'stripe_payment_method' => ['type' => 'char'],
+            'stripe_mandate' => ['type' => 'char'],
+            'active' => ['type' => 'boolean'],
+        ]);
+        $this->client->mockResponse('payment.token', 'create', 102);
+        $this->client->mockResponse('payment.token', 'read', [[
+            'id' => 102,
+            'provider_ref' => 'cus_test',
+            'stripe_payment_method' => 'pm_test',
+            'stripe_mandate' => 'mandate_test',
+        ]]);
+
+        $id = $this->service->importPaymentInstrument(
+            42,
+            'cus_test',
+            'pm_test',
+            'sepa_direct_debit',
+            'BE•• •••• 1234',
+            7,
+            'mandate_test'
+        );
+
+        self::assertSame(102, $id);
+
+        $readCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['model'] === 'payment.token' && $call['method'] === 'read') {
+                $readCall = $call;
+            }
+        }
+        self::assertNotNull($readCall);
+        /** @var array<int, string> $fields */
+        $fields = $readCall['params']['fields'] ?? [];
+        self::assertContains('stripe_mandate', $fields);
+    }
+
+    public function testImportWithMandateFailsFastWhenSchemaLacksMandateField(): void
+    {
+        $this->client->mockResponse('payment.token', 'search', []);
+        $this->client->mockResponse('payment.method', 'search_read', [['id' => 70]]);
+        $this->client->mockResponse('payment.token', 'fields_get', [
+            'payment_details' => ['type' => 'char'],
+            'partner_id' => ['type' => 'many2one'],
+            'provider_id' => ['type' => 'many2one'],
+            'payment_method_id' => ['type' => 'many2one'],
+            'provider_ref' => ['type' => 'char'],
+            'stripe_payment_method' => ['type' => 'char'],
+            'active' => ['type' => 'boolean'],
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('no stripe_mandate field');
+
+        $this->service->importPaymentInstrument(
+            42,
+            'cus_test',
+            'pm_test',
+            'sepa_direct_debit',
+            'BE•• •••• 1234',
+            7,
+            'mandate_test'
+        );
+    }
+
     public function testImportPaymentInstrumentKeepsPmValidationForSepa(): void
     {
         $this->expectException(\InvalidArgumentException::class);

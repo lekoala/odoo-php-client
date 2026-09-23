@@ -506,9 +506,11 @@ typical mistakes below deserve to be memorized:
   `search()`, `getByCategory()`, `listTaxes()`, `iterateTaxes()`.
 - **PaymentService** (`account.payment.register` wizard): `registerPayment()`,
   `processPaymentToken()`, `chargeInvoiceWithToken()`, `getJournals()`,
-  `getPaymentMethods()`, `findPaymentsForInvoice()`,
-  `findTransactionsForInvoice()` (returns `PaymentTransaction` DTOs with
-  `isPending()` / `isDone()` / `isFailed()` / `isCancelled()`).
+  `getPaymentMethods()`, `findPaymentsForInvoice($invoiceId, $communication = null)`
+  (filters on the payment memo), `findTransactionsForInvoice($invoiceId, $communication = null)`
+  (returns `PaymentTransaction` DTOs with `isPending()` / `isDone()` /
+  `isFailed()` / `isCancelled()`, matched via the parent payment memo
+  `payment_id.memo` so recovery works before reconciliation).
   `PaymentRegisteredEvent` means registered, not paid: read the transaction
   state before treating money as collected.
 - **ApiKeyService** (`res.users.apikeys`): `listKeys()`, `findByName()`.
@@ -534,7 +536,8 @@ try {
 } catch (PaymentOutcomeUnknownException $e) {
     // Thrown only when the transport fails during action_create_payments().
     // The payment may already exist: do NOT retry blindly. Look it up via
-    // findPaymentsForInvoice() / findTransactionsForInvoice() using the
+    // findPaymentsForInvoice($invoiceId, $e->getCommunication()) /
+    // findTransactionsForInvoice($invoiceId, $e->getCommunication()) using the
     // caller-owned PaymentInput::$communication reference.
     // It extends OdooException directly so a generic network-retry handler
     // cannot replay it.

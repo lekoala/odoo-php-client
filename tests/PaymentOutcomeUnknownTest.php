@@ -114,4 +114,73 @@ class PaymentOutcomeUnknownTest extends TestCase
         self::assertSame(701, $transactions[0]->id);
         self::assertTrue($transactions[0]->isPending());
     }
+
+    public function testRecoveryLookupFiltersOnCommunication(): void
+    {
+        $this->client->mockResponse('account.payment', 'search', [61]);
+        // Note: the transaction reference is Odoo-generated (memo-prefixed),
+        // never the raw communication — recovery matches via payment_id.memo.
+        $this->client->mockResponse('payment.transaction', 'search_read', [[
+            'id' => 701,
+            'state' => 'pending',
+            'amount' => 29.90,
+            'reference' => 'TX-PAY-456-01',
+            'provider_reference' => 'pi_test',
+            'operation' => 'online_direct',
+            'token_id' => [99, 'Card'],
+            'payment_id' => [61, 'PAY/001'],
+            'payment_method_code' => 'card',
+            'state_message' => null,
+            'last_state_change' => '2026-01-01 10:00:00',
+        ]]);
+
+        self::assertSame([61], $this->service->findPaymentsForInvoice(10, 'PAY-456'));
+
+        $searchCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['model'] === 'account.payment' && $call['method'] === 'search') {
+                $searchCall = $call;
+            }
+        }
+        self::assertNotNull($searchCall);
+        /** @var array<int, mixed> $paymentDomain */
+        $paymentDomain = $searchCall['params']['domain'] ?? [];
+        self::assertContains(['reconciled_invoice_ids', 'in', [10]], $paymentDomain);
+        self::assertContains(['memo', '=', 'PAY-456'], $paymentDomain);
+
+        $transactions = $this->service->findTransactionsForInvoice(10, 'PAY-456');
+        self::assertCount(1, $transactions);
+
+        $searchReadCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['model'] === 'payment.transaction' && $call['method'] === 'search_read') {
+                $searchReadCall = $call;
+            }
+        }
+        self::assertNotNull($searchReadCall);
+        /** @var array<int, mixed> $transactionDomain */
+        $transactionDomain = $searchReadCall['params']['domain'] ?? [];
+        self::assertContains(['invoice_ids', 'in', [10]], $transactionDomain);
+        self::assertContains(['payment_id.memo', '=', 'PAY-456'], $transactionDomain);
+    }
+
+    public function testLookupWithoutCommunicationKeepsUnfilteredDomain(): void
+    {
+        $this->client->mockResponse('account.payment', 'search', [61, 62]);
+        $this->client->mockResponse('payment.transaction', 'search_read', []);
+
+        self::assertSame([61, 62], $this->service->findPaymentsForInvoice(10));
+        self::assertSame([], $this->service->findTransactionsForInvoice(10));
+
+        $searchCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['model'] === 'account.payment' && $call['method'] === 'search') {
+                $searchCall = $call;
+            }
+        }
+        self::assertNotNull($searchCall);
+        /** @var array<int, mixed> $paymentDomain */
+        $paymentDomain = $searchCall['params']['domain'] ?? [];
+        self::assertCount(1, $paymentDomain);
+    }
 }

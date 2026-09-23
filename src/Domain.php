@@ -84,8 +84,11 @@ class Domain
     /**
      * Combine domain parts with AND (pure, no builder state).
      *
-     * all() → [], all($a) → $a, all($a, $b) → ['&', $a, $b],
+     * all() → [], all($a) → [$a], all($a, $b) → ['&', $a, $b],
      * all($a, $b, $c) → ['&', '&', $a, $b, $c].
+     *
+     * Sub-domains are spliced (flat prefix notation), never nested:
+     * all($a, any($b, $c)) → ['&', $a, '|', $b, $c].
      *
      * @param array<int, mixed> ...$parts Leaves or already-combined sub-domains.
      * @return array<int, mixed>
@@ -98,7 +101,9 @@ class Domain
     /**
      * Combine domain parts with OR (pure, no builder state).
      *
-     * any($a, $b, $c) → ['|', '|', $a, $b, $c].
+     * any() → [], any($a) → [$a], any($a, $b, $c) → ['|', '|', $a, $b, $c].
+     *
+     * Sub-domains are spliced (flat prefix notation), never nested.
      *
      * @param array<int, mixed> ...$parts Leaves or already-combined sub-domains.
      * @return array<int, mixed>
@@ -114,18 +119,52 @@ class Domain
      */
     private static function combine(string $operator, array ...$parts): array
     {
-        $count = count($parts);
-        if ($count === 0) {
+        /** @var array<int, array<int, mixed>> $domains */
+        $domains = [];
+        foreach ($parts as $part) {
+            if ($part === []) {
+                continue;
+            }
+            if (self::isLeaf($part)) {
+                $domains[] = [$part];
+                continue;
+            }
+            $domains[] = array_values($part);
+        }
+
+        if ($domains === []) {
             return [];
         }
-        if ($count === 1) {
-            return $parts[0];
+        if (count($domains) === 1) {
+            return $domains[0];
         }
 
         /** @var array<int, mixed> $combined */
-        $combined = array_merge(array_fill(0, $count - 1, $operator), $parts);
+        $combined = array_fill(0, count($domains) - 1, $operator);
+        foreach ($domains as $domain) {
+            array_push($combined, ...$domain);
+        }
 
         return $combined;
+    }
+
+    /**
+     * A leaf is a single [field, operator, value] condition, as built by
+     * {@see self::condition()}. Anything else (a flat prefix list such as
+     * ['|', $a, $b] or a list of leaves) is a domain to splice, not to nest.
+     *
+     * @param array<int, mixed> $part
+     */
+    private static function isLeaf(array $part): bool
+    {
+        if (count($part) !== 3 || array_keys($part) !== [0, 1, 2]) {
+            return false;
+        }
+        if (!is_string($part[0]) || !is_string($part[1])) {
+            return false;
+        }
+
+        return $part[0] !== '&' && $part[0] !== '|' && $part[0] !== '!';
     }
 
     /**

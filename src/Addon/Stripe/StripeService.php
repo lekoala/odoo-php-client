@@ -269,11 +269,14 @@ class StripeService
             return 0;
         }
 
-        $stored = $this->client->read('payment.token', [$tokenId], [
-            'provider_ref',
-            'stripe_payment_method',
-            'stripe_mandate',
-        ]);
+        // Read back only the fields that were actually written: requesting
+        // stripe_mandate when the schema has no such field (card import
+        // without mandate) makes a successful create fail on verification.
+        $readFields = ['provider_ref', 'stripe_payment_method'];
+        if (array_key_exists('stripe_mandate', $data)) {
+            $readFields[] = 'stripe_mandate';
+        }
+        $stored = $this->client->read('payment.token', [$tokenId], $readFields);
         /** @var array<string, mixed> $row */
         $row = isset($stored[0]) && is_array($stored[0]) ? $stored[0] : [];
         $providerRef = $row['provider_ref'] ?? null;
