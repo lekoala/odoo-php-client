@@ -16,6 +16,7 @@ class PaymentInput
         public ?int $journalId = null,
         public DateTimeInterface|string|null $paymentDate = null,
         public ?int $paymentMethodLineId = null,
+        /** Caller-owned correlation reference, propagated as the payment communication. */
         public ?string $communication = null,
         public ?int $paymentTokenId = null,
         public array $extraData = []

@@ -172,7 +172,9 @@ Manages the Odoo product catalog (`product.product`).
 
 Handles payment registration via the `account.payment.register` wizard.
 
-- `registerPayment(PaymentInput $input)`: Creates and reconciles payments, returning a `PaymentResult` with every payment/transaction ID and an explicit resolution status.
+- `registerPayment(PaymentInput $input)`: Creates and reconciles payments, returning a `PaymentResult` with every payment/transaction ID and an explicit resolution status (`Explicit` / `Reconciled` / `Ambiguous` answers how the payments were identified). When the transport fails during `action_create_payments()`, a `PaymentOutcomeUnknownException` is thrown instead: the payment may already exist, so do not retry blindly — look it up via `findPaymentsForInvoice()` / `findTransactionsForInvoice()` using the caller-owned `PaymentInput::$communication` reference.
+- `chargeInvoiceWithToken(...)`: Same unknown-outcome contract, with pre-checks (posted invoice, expected residual, suitable token held by the wizard, electronic method).
+- `findTransactionsForInvoice(int $invoiceId)`: Returns `PaymentTransaction` DTOs (`state` kept as a raw string, `isPending()` / `isDone()` / `isFailed()` / `isCancelled()` only — registration is not collection).
 - `getJournals()`: Lists available bank/cash journals.
 - `processPaymentToken(int $invoiceId, float $amount, int $tokenId, ?int $journalId = null, ?int $paymentMethodLineId = null)`: Charges an invoice using a saved Odoo payment token and returns a `PaymentResult`.
 - Stripe helpers (`getStripeProviderId()`, `importStripeToken()`, …): Deprecated proxies, use `Odoo::$stripe` (`Addon\Stripe\StripeService`)

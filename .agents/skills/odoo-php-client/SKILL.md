@@ -392,9 +392,22 @@ $subId = $odoo->subscriptions->create(new SubscriptionInput(
 $invoices = $odoo->invoices->list();
 $odoo->invoices->confirm($invoiceId);
 
-// Stripe addon — provider resolution is explicit (company, test/live, ambiguity)
+// Stripe addon — provider resolution is explicit (company, test/live, ambiguity).
+// This addon mirrors the Stripe objects as seen by Odoo; it is not a Stripe
+// API client and does not handle Stripe webhooks.
 $providerId = $odoo->stripe->requireStripeProviderId();
 $tokenId = $odoo->stripe->importStripeToken($partnerId, 'cus_...', 'pm_...', '.... 4242', $providerId);
+
+// Non-card instruments (e.g. SEPA): same pm_... shape, Odoo method code differs.
+$sepaTokenId = $odoo->stripe->importPaymentInstrument(
+    $partnerId,
+    'cus_...',
+    'pm_...',
+    'sepa_direct_debit',
+    'BE•• •••• 1234',
+    $providerId,
+    'mandate_...'
+);
 
 // PEPPOL addon
 $ready = $odoo->peppol->listReadyInvoices();
@@ -492,10 +505,17 @@ typical mistakes below deserve to be memorized:
 - **ProductService** (`product.product`): `list()`, `iterate()`, `get()`,
   `search()`, `getByCategory()`, `listTaxes()`, `iterateTaxes()`.
 - **PaymentService** (`account.payment.register` wizard): `registerPayment()`,
-  `processPaymentToken()`, `getJournals()`, `getPaymentMethods()`.
+  `processPaymentToken()`, `chargeInvoiceWithToken()`, `getJournals()`,
+  `getPaymentMethods()`, `findPaymentsForInvoice()`,
+  `findTransactionsForInvoice()` (returns `PaymentTransaction` DTOs with
+  `isPending()` / `isDone()` / `isFailed()` / `isCancelled()`).
+  `PaymentRegisteredEvent` means registered, not paid: read the transaction
+  state before treating money as collected.
 - **ApiKeyService** (`res.users.apikeys`): `listKeys()`, `findByName()`.
 - **Addon\Stripe\StripeService**: `requireStripeProviderId()`,
-  `importStripeToken()`, `findStripeToken()`, `getCardPaymentMethodId()`.
+  `importStripeToken()` (card wrapper), `importPaymentInstrument()`
+  (card, `sepa_direct_debit`, ... with optional `stripe_mandate`),
+  `findStripeToken()`, `getPaymentMethodId()`, `getCardPaymentMethodId()`.
 - **Addon\Peppol\PeppolService**: `listEnabledCustomers()`,
   `listReadyInvoices()`, `listInvoicesByStatus()`, `sendInvoice()`.
 
@@ -505,11 +525,19 @@ typical mistakes below deserve to be memorized:
 use LeKoala\OdooClient\Exceptions\OdooAuthException;
 use LeKoala\OdooClient\Exceptions\OdooNetworkException;
 use LeKoala\OdooClient\Exceptions\OdooValidationException;
+use LeKoala\OdooClient\Exceptions\PaymentOutcomeUnknownException;
 
 try {
     $result = $odoo->customers->create(new CustomerInput(name: 'Test'));
 } catch (OdooAuthException $e) {
     // Invalid API key (HTTP 401). Check User Profile → Account Security.
+} catch (PaymentOutcomeUnknownException $e) {
+    // Thrown only when the transport fails during action_create_payments().
+    // The payment may already exist: do NOT retry blindly. Look it up via
+    // findPaymentsForInvoice() / findTransactionsForInvoice() using the
+    // caller-owned PaymentInput::$communication reference.
+    // It extends OdooException directly so a generic network-retry handler
+    // cannot replay it.
 } catch (OdooNetworkException $e) {
     // Timeout or transient gateway error (HTTP 502/503/504).
     // Read-only calls were already retried per Config; writes were not —

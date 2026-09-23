@@ -110,4 +110,80 @@ class StripeServiceTest extends TestCase
 
         self::assertSame(101, $id);
     }
+
+    public function testImportPaymentInstrumentSupportsSepaWithMandate(): void
+    {
+        $this->client->mockResponse('payment.method', 'search_read', [['id' => 70]]);
+        $this->client->mockResponse('payment.token', 'create', 102);
+        $this->client->mockResponse('payment.token', 'read', [[
+            'id' => 102,
+            'provider_ref' => 'cus_test',
+            'stripe_payment_method' => 'pm_test',
+            'stripe_mandate' => 'mandate_test',
+        ]]);
+
+        $id = $this->service->importPaymentInstrument(
+            42,
+            'cus_test',
+            'pm_test',
+            'sepa_direct_debit',
+            'BE•• •••• 1234',
+            7,
+            'mandate_test'
+        );
+
+        self::assertSame(102, $id);
+
+        $createCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['method'] === 'create') {
+                $createCall = $call;
+                break;
+            }
+        }
+        self::assertNotNull($createCall);
+        /** @var array<string, mixed> $values */
+        $values = $createCall['params']['vals_list'][0] ?? [];
+        self::assertSame('mandate_test', $values['stripe_mandate'] ?? null);
+        self::assertSame(70, $values['payment_method_id'] ?? null);
+
+        $methodCall = null;
+        foreach ($this->client->getCallLog() as $call) {
+            if ($call['model'] === 'payment.method' && $call['method'] === 'search_read') {
+                $methodCall = $call;
+                break;
+            }
+        }
+        self::assertNotNull($methodCall);
+        /** @var array<int, mixed> $methodDomain */
+        $methodDomain = $methodCall['params']['domain'] ?? [];
+        self::assertContains(['code', '=', 'sepa_direct_debit'], $methodDomain);
+    }
+
+    public function testImportPaymentInstrumentKeepsPmValidationForSepa(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->importPaymentInstrument(42, 'cus_test', 'src_test', 'sepa_direct_debit', 'BE•• 1234', 7);
+    }
+
+    public function testImportPaymentInstrumentRejectsBadMandate(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->importPaymentInstrument(42, 'cus_test', 'pm_test', 'sepa_direct_debit', 'BE•• 1234', 7, 'nope');
+    }
+
+    public function testGetPaymentMethodIdIsGeneric(): void
+    {
+        $this->client->mockResponse('payment.method', 'search_read', [['id' => 70]]);
+
+        self::assertSame(70, $this->service->getPaymentMethodId(7, 'sepa_direct_debit'));
+
+        $lastCall = $this->client->getLastCall();
+        /** @var array<int, mixed> $domain */
+        $domain = $lastCall['params']['domain'] ?? [];
+        self::assertContains(['code', '=', 'sepa_direct_debit'], $domain);
+        self::assertContains(['provider_ids', 'in', [7]], $domain);
+    }
 }

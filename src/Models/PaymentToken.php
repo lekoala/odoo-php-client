@@ -12,10 +12,14 @@ class PaymentToken
     public int $id;
     public string $name;         // Usually masked details like "•••• 1234"
     public ?string $paymentDetails; // Odoo 17+ field replacing name for display
-    public ?string $providerRef; // external reference (e.g. Stripe pm_...)
+    public ?string $providerRef; // Odoo customer reference (e.g. Stripe cus_...)
     public int $partnerId;
     public int $providerId;
     public bool $active;
+    public ?int $paymentMethodId;
+    public ?string $paymentMethodCode; // e.g. card, sepa_direct_debit
+    public ?string $stripePaymentMethod; // Stripe PaymentMethod id (e.g. pm_...)
+    public ?string $stripeMandate; // Stripe mandate reference when present
 
     /**
      * @param array<string, mixed> $data
@@ -29,5 +33,21 @@ class PaymentToken
         $this->partnerId = (isset($data['partner_id']) && is_array($data['partner_id']) && isset($data['partner_id'][0]) && is_int($data['partner_id'][0])) ? $data['partner_id'][0] : (isset($data['partner_id']) && is_int($data['partner_id']) ? $data['partner_id'] : 0);
         $this->providerId = (isset($data['provider_id']) && is_array($data['provider_id']) && isset($data['provider_id'][0]) && is_int($data['provider_id'][0])) ? $data['provider_id'][0] : (isset($data['acquirer_id']) && is_array($data['acquirer_id']) && isset($data['acquirer_id'][0]) && is_int($data['acquirer_id'][0]) ? $data['acquirer_id'][0] : (isset($data['provider_id']) && is_int($data['provider_id']) ? $data['provider_id'] : (isset($data['acquirer_id']) && is_int($data['acquirer_id']) ? $data['acquirer_id'] : 0)));
         $this->active = !isset($data['active']) || !empty($data['active']);
+        $this->paymentMethodId = self::many2oneId($data['payment_method_id'] ?? null);
+        $code = $data['payment_method_code'] ?? null;
+        $this->paymentMethodCode = is_string($code) && $code !== '' ? $code : null;
+        $stripeMethod = $data['stripe_payment_method'] ?? null;
+        $this->stripePaymentMethod = is_string($stripeMethod) && $stripeMethod !== '' ? $stripeMethod : null;
+        $mandate = $data['stripe_mandate'] ?? null;
+        $this->stripeMandate = is_string($mandate) && $mandate !== '' ? $mandate : null;
+    }
+
+    private static function many2oneId(mixed $value): ?int
+    {
+        if (is_array($value)) {
+            $value = $value[0] ?? null;
+        }
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
     }
 }

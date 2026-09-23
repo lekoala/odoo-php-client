@@ -4,6 +4,8 @@ namespace LeKoala\OdooClient\Events;
 
 /**
  * Dispatched when a payment is registered for an invoice.
+ *
+ * Registration is not payment: the transaction may still be pending.
  */
 class PaymentRegisteredEvent extends OdooEvent
 {
@@ -16,7 +18,7 @@ class PaymentRegisteredEvent extends OdooEvent
     }
 
     /**
-     * Get the ID of the invoice that was paid.
+     * Get the invoice associated with the registered payment.
      */
     public function getInvoiceId(): int
     {

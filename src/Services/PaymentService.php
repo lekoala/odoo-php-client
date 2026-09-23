@@ -6,8 +6,11 @@ use LeKoala\OdooClient\Client;
 use LeKoala\OdooClient\Inputs\PaymentInput;
 use LeKoala\OdooClient\Events\PaymentRegisteredEvent;
 use LeKoala\OdooClient\Enums\PaymentResolution;
+use LeKoala\OdooClient\Exceptions\OdooNetworkException;
+use LeKoala\OdooClient\Exceptions\PaymentOutcomeUnknownException;
 use LeKoala\OdooClient\Exceptions\UnsuitablePaymentTokenException;
 use LeKoala\OdooClient\Models\PaymentResult;
+use LeKoala\OdooClient\Models\PaymentTransaction;
 use LeKoala\OdooClient\Addon\Stripe\StripeService;
 use LeKoala\OdooClient\OdooException;
 
@@ -33,9 +36,12 @@ class PaymentService
      * Register a payment against one or more posted invoices.
      *
      * This creates a payment registration wizard, sets its properties, and executes the action.
+     * Use `PaymentInput::$communication` as the caller-owned correlation reference:
+     * it is the stable key to look the payment up again after a crash.
      *
      * @param PaymentInput $input Typed payment configuration (amount, journal, invoice IDs)
      * @return PaymentResult The resolved payments and their related transactions
+     * @throws PaymentOutcomeUnknownException When the transport fails during action_create_payments().
      * @throws \LeKoala\OdooClient\OdooException
      */
     public function registerPayment(PaymentInput $input): PaymentResult
@@ -51,10 +57,20 @@ class PaymentService
             return new PaymentResult([], resolution: PaymentResolution::Ambiguous);
         }
 
-        $action = $this->client->call('account.payment.register', 'action_create_payments', [
-            'ids' => [$wizardId],
-            'context' => $context,
-        ]);
+        try {
+            $action = $this->client->call('account.payment.register', 'action_create_payments', [
+                'ids' => [$wizardId],
+                'context' => $context,
+            ]);
+        } catch (OdooNetworkException $exception) {
+            throw new PaymentOutcomeUnknownException(
+                array_values($input->getInvoiceIds()),
+                $wizardId,
+                $input->communication,
+                $input->paymentTokenId,
+                $exception
+            );
+        }
 
         return $this->resolvePaymentResult($action, $input->getInvoiceIds());
     }
@@ -284,7 +300,7 @@ class PaymentService
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return list<PaymentTransaction>
      */
     public function findTransactionsForInvoice(int $invoiceId): array
     {
@@ -301,6 +317,7 @@ class PaymentService
                 'operation',
                 'token_id',
                 'payment_id',
+                'payment_method_code',
                 'state_message',
                 'last_state_change',
             ],
@@ -309,11 +326,17 @@ class PaymentService
             'id desc'
         );
 
-        return $rows;
+        $transactions = [];
+        foreach ($rows as $row) {
+            $transactions[] = new PaymentTransaction($row);
+        }
+
+        return $transactions;
     }
 
     /**
      * @return PaymentResult
+     * @throws PaymentOutcomeUnknownException When the transport fails during action_create_payments().
      */
     public function chargeInvoiceWithToken(
         int $invoiceId,
@@ -417,10 +440,20 @@ class PaymentService
             ));
         }
 
-        $action = $this->client->call('account.payment.register', 'action_create_payments', [
-            'ids' => [$wizardId],
-            'context' => $context,
-        ]);
+        try {
+            $action = $this->client->call('account.payment.register', 'action_create_payments', [
+                'ids' => [$wizardId],
+                'context' => $context,
+            ]);
+        } catch (OdooNetworkException $exception) {
+            throw new PaymentOutcomeUnknownException(
+                [$invoiceId],
+                $wizardId,
+                null,
+                $tokenId,
+                $exception
+            );
+        }
 
         return $this->resolvePaymentResult($action, $input->getInvoiceIds());
     }
