@@ -8,8 +8,6 @@ A PHP 8.3+ client for Odoo 19's External JSON-2 API, with generic model calls an
 composer require lekoala/odoo-php-client
 ```
 
-Until the first release is published, install the package from its Git repository or a Composer path repository.
-
 ## Quick start
 
 ```php
@@ -31,7 +29,7 @@ $partners = $odoo->getClient()->searchRead(
 );
 ```
 
-Every JSON-2 method remains available through named parameters:
+Every JSON-2 method is available through named parameters:
 
 ```php
 $odoo->getClient()->call('sale.order', 'action_confirm', [
@@ -52,7 +50,7 @@ $ids = $odoo->getClient()->createMany('res.partner', [
 
 ## Pagination and iteration
 
-Typed service lists no longer apply a hidden result cap. Use `QueryOptions` for an
+Typed service lists apply no hidden result cap. Use `QueryOptions` for an
 explicit page, or `iterate()` to process large result sets in bounded requests:
 
 ```php
@@ -73,10 +71,10 @@ foreach ($odoo->customers->iterate(
 }
 ```
 
-`limit: null` (the default) means no overall cap. Iterators remain bounded by
+`limit: null` (the default) means no overall cap. Iterators fetch by
 `batchSize`; array-returning `list()` methods load all matching rows, so prefer
-`iterate()` for large tables. Passing an integer as the second argument remains
-supported as shorthand for an explicit limit.
+`iterate()` for large tables. Passing an integer as the second argument is
+shorthand for an explicit limit.
 
 Low-level `searchRead()` sends only the options you actually provide: an empty
 `$fields`, a zero limit/offset or a null order is omitted from the request body
@@ -89,16 +87,14 @@ AI agents: the generic integration skill shipped with this package is
 
 ## Design guarantees
 
-- JSON-2 named arguments are sent without RPC-style positional inference through `call()`.
-- Deprecated `execute()` compatibility is isolated at the public client boundary; adapters and services use named JSON-2 parameters only.
+- The public entry point is `call()` with explicit JSON-2 named parameters.
 - Read-only calls may be retried after transient gateway/network failures; writes and actions are not retried automatically.
   Retry count, backoff, timeouts and redirects are configurable on `Config` (`setMaxRetries()`, `setRetryBackoff()`,
   `setConnectTimeout()`, `setTimeout()`, `setMaxRedirects()`).
 - A default `context` can be set once with `Config::setDefaultContext()`; explicit per-call context wins key by key.
 - `Client::fieldsOf()` caches `fields_get` per instance; call `clearFieldsCache()` after module upgrades.
 - Events are dispatched after the remote mutation has committed: a listener exception is logged, never reported as an Odoo failure.
-- Stripe and Peppol live in `Addon\Stripe` and `Addon\Peppol` (`Odoo::$stripe`, `Odoo::$peppol`); the previous
-  service methods remain as deprecated proxies.
+- Stripe and Peppol are exposed as `Addon\Stripe` and `Addon\Peppol` (`Odoo::$stripe`, `Odoo::$peppol`).
 - HTTP 401, HTTP 403, network failures and Odoo validation errors use distinct exception types.
 - HTTP calls use an injectable transport; cURL is only the zero-configuration fallback.
 - A custom adapter can be injected into `Client` for tests or alternative transports.
