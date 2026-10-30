@@ -51,7 +51,6 @@ final class CurlTransport implements HttpTransportInterface
 
         $method = strtoupper($request->method);
         if ($method === '') {
-            curl_close($handle);
             throw new OdooNetworkException('HTTP method cannot be empty');
         }
         curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
@@ -78,7 +77,6 @@ final class CurlTransport implements HttpTransportInterface
         $body = curl_exec($handle);
         $statusCode = (int) curl_getinfo($handle, CURLINFO_HTTP_CODE);
         $error = curl_error($handle);
-        curl_close($handle);
 
         if ($body === false || $error !== '') {
             throw new OdooNetworkException('cURL error: ' . ($error !== '' ? $error : 'unknown transfer error'));
