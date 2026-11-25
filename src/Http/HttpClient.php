@@ -15,8 +15,10 @@ final class HttpClient
         'X-Odoo-Database',
     ];
 
-    public function __construct(private readonly HttpTransportInterface $transport)
-    {
+    public function __construct(
+        private readonly HttpTransportInterface $transport,
+        private readonly ?RateLimitedRequests $rateLimitedRequests = null,
+    ) {
     }
 
     public function send(HttpRequest $request): HttpResponse
@@ -24,7 +26,9 @@ final class HttpClient
         $current = $request;
 
         for ($redirects = 0; ; $redirects++) {
-            $response = $this->transport->send($current);
+            $response = $this->rateLimitedRequests !== null
+                ? $this->rateLimitedRequests->send($this->transport, $current)
+                : $this->transport->send($current);
             $location = $response->getHeaderLine('Location');
             if (!in_array($response->statusCode, self::REDIRECT_CODES, true) || $location === '') {
                 return $response;

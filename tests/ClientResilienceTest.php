@@ -8,6 +8,10 @@ use LeKoala\OdooClient\Config;
 use LeKoala\OdooClient\Enums\OdooModel;
 use LeKoala\OdooClient\Events\OdooRecordCreatedEvent;
 use LeKoala\OdooClient\Exceptions\OdooNetworkException;
+use LeKoala\OdooClient\Exceptions\OdooValidationException;
+use LeKoala\OdooClient\Http\HttpRequest;
+use LeKoala\OdooClient\Http\HttpResponse;
+use LeKoala\OdooClient\Tests\Support\RecordingTransport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -88,6 +92,113 @@ class ClientResilienceTest extends TestCase
         } finally {
             self::assertCount(1, $adapter->calls);
             self::assertSame([], $sleeps);
+        }
+    }
+
+    public function testWriteRetriesOnExplicitRateLimitWithRetryAfter(): void
+    {
+        $transport = new RecordingTransport([
+            new HttpResponse(429, ['retry-after' => ['3']], 'Too Many Requests', ''),
+            new HttpResponse(200, [], '[42]', ''),
+        ]);
+        $config = (new Config('https://odoo.example.test'))->setMaxRateLimitRetries(1);
+        $sleeps = [];
+        $client = new Client($config, httpTransport: $transport);
+        $client->setSleeper(static function (int $micros) use (&$sleeps): void {
+            $sleeps[] = $micros;
+        });
+
+        self::assertSame(42, $client->create('res.partner', ['name' => 'Alice']));
+        self::assertCount(2, $transport->requests);
+        self::assertSame($transport->requests[0], $transport->requests[1]);
+        self::assertSame([3_000_000], $sleeps);
+    }
+
+    public function testRateLimitWithoutUsableHeaderUsesBackoffAndStops(): void
+    {
+        $transport = new RecordingTransport([
+            new HttpResponse(429, ['Retry-After' => ['invalid']], '', ''),
+            new HttpResponse(429, [], '', ''),
+            new HttpResponse(429, [], 'Too Many Requests', ''),
+        ]);
+        $config = (new Config('https://odoo.example.test'))->setMaxRateLimitRetries(2)->setRetryBackoff(250);
+        $sleeps = [];
+        $client = new Client($config, httpTransport: $transport, sleeper: static function (int $micros) use (&$sleeps): void {
+            $sleeps[] = $micros;
+        });
+
+        $this->expectException(OdooValidationException::class);
+        $this->expectExceptionCode(429);
+        try {
+            $client->searchRead('res.partner');
+        } finally {
+            self::assertCount(3, $transport->requests);
+            self::assertSame([250_000, 500_000], $sleeps);
+        }
+    }
+
+    public function testRetryAfterHttpDateIsHonoured(): void
+    {
+        $retryAt = time() + 20;
+        $transport = new RecordingTransport([
+            new HttpResponse(429, ['Retry-After' => [gmdate('D, d M Y H:i:s \G\M\T', $retryAt)]], '', ''),
+            new HttpResponse(200, [], '[]', ''),
+        ]);
+        $config = (new Config('https://odoo.example.test'))->setMaxRateLimitRetries(1);
+        $sleeps = [];
+        $client = new Client($config, httpTransport: $transport, sleeper: static function (int $micros) use (&$sleeps): void {
+            $sleeps[] = $micros;
+        });
+
+        self::assertSame([], $client->searchRead('res.partner'));
+        self::assertCount(1, $sleeps);
+        self::assertGreaterThan(0, $sleeps[0]);
+        self::assertEqualsWithDelta($retryAt, microtime(true) + $sleeps[0] / 1_000_000, 0.1);
+    }
+
+    public function testRateLimitRetryRequiresOptInAndDefersLongWaits(): void
+    {
+        foreach ([0 => '1', 3 => '60'] as $maxRetries => $retryAfter) {
+            $transport = new RecordingTransport([
+                new HttpResponse(429, ['Retry-After' => [$retryAfter]], 'Too Many Requests', ''),
+            ]);
+            $config = (new Config('https://odoo.example.test'))->setMaxRateLimitRetries($maxRetries);
+            $client = new Client($config, httpTransport: $transport, sleeper: static function (): void {
+                self::fail('No retry should be scheduled');
+            });
+
+            try {
+                $client->searchRead('res.partner');
+                self::fail('Expected an HTTP 429');
+            } catch (OdooValidationException $exception) {
+                self::assertSame(429, $exception->getCode());
+            }
+            self::assertCount(1, $transport->requests);
+        }
+    }
+
+    public function testHttpClientsShareRequestSpacingIncludingRedirects(): void
+    {
+        $transport = new RecordingTransport([
+            new HttpResponse(200, [], '[]', ''),
+            new HttpResponse(302, ['Location' => ['/invoice.pdf']], '', ''),
+            new HttpResponse(200, [], '%PDF', ''),
+        ]);
+        $config = (new Config('https://odoo.example.test'))->setMinRequestIntervalMs(1_000);
+        $sleeps = [];
+        $client = new Client($config, httpTransport: $transport, sleeper: static function (int $micros) use (&$sleeps): void {
+            $sleeps[] = $micros;
+        });
+
+        $client->searchRead('res.partner');
+        self::assertSame([], $sleeps);
+        $response = $client->getHttpClient()->send(new HttpRequest('GET', 'https://odoo.example.test/portal', maxRedirects: 1));
+
+        self::assertSame('%PDF', $response->body);
+        self::assertCount(2, $sleeps);
+        foreach ($sleeps as $delay) {
+            self::assertGreaterThan(0, $delay);
+            self::assertLessThanOrEqual(1_000_000, $delay);
         }
     }
 

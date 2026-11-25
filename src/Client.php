@@ -13,6 +13,7 @@ use LeKoala\OdooClient\Events\OdooRecordDeletedEvent;
 use LeKoala\OdooClient\Http\CurlTransport;
 use LeKoala\OdooClient\Http\HttpClient;
 use LeKoala\OdooClient\Http\HttpTransportInterface;
+use LeKoala\OdooClient\Http\RateLimitedRequests;
 use Psr\Log\LoggerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
@@ -23,6 +24,7 @@ class Client
     private LoggerInterface $logger;
     private ?EventDispatcherInterface $eventDispatcher = null;
     private ?HttpTransportInterface $explicitTransport = null;
+    private ?RateLimitedRequests $rateLimitedRequests = null;
     /** @var array<string, array<string, mixed>> Cache for model fields */
     private array $fieldCache = [];
 
@@ -68,7 +70,7 @@ class Client
     ];
 
     /**
-     * @param callable(int): void|null $sleeper Sleeps between retries; defaults to usleep().
+     * @param callable(int): void|null $sleeper Sleeps between requests or retries.
      */
     public function __construct(
         Config $config,
@@ -81,16 +83,20 @@ class Client
         $this->explicitTransport = $httpTransport;
         $this->sleeper = $sleeper ?? static function (int $micros): void {
             if ($micros > 0) {
-                usleep($micros);
+                time_nanosleep(intdiv($micros, 1_000_000), ($micros % 1_000_000) * 1_000);
             }
         };
+        $this->rateLimitedRequests = new RateLimitedRequests(
+            $config,
+            fn (int $micros) => ($this->sleeper)($micros),
+        );
         $this->adapter = $adapter ?? $this->createAdapter($config);
         $this->logger = $config->getLogger();
         $this->eventDispatcher = $config->getEventDispatcher();
     }
 
     /**
-     * Override the sleep between retries (useful for tests to avoid waiting).
+     * Override the sleep between requests or retries (useful for tests to avoid waiting).
      *
      * @param callable(int): void|null $sleeper
      */
@@ -98,7 +104,7 @@ class Client
     {
         $this->sleeper = $sleeper ?? static function (int $micros): void {
             if ($micros > 0) {
-                usleep($micros);
+                time_nanosleep(intdiv($micros, 1_000_000), ($micros % 1_000_000) * 1_000);
             }
         };
     }
@@ -122,7 +128,7 @@ class Client
             ?? $config->getHttpTransport()
             ?? new CurlTransport($config->getConnectTimeout(), $config->getTimeout());
 
-        return new HttpClient($transport);
+        return new HttpClient($transport, $this->rateLimitedRequests ??= new RateLimitedRequests($config));
     }
 
     /**

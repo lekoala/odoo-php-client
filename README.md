@@ -88,7 +88,7 @@ AI agents: the generic integration skill shipped with this package is
 ## Design guarantees
 
 - The public entry point is `call()` with explicit JSON-2 named parameters.
-- Read-only calls may be retried after transient gateway/network failures; writes and actions are not retried automatically.
+- Transient gateway/network failures can trigger automatic retries for read-only calls.
   Retry count, backoff, timeouts and redirects are configurable on `Config` (`setMaxRetries()`, `setRetryBackoff()`,
   `setConnectTimeout()`, `setTimeout()`, `setMaxRedirects()`).
 - A default `context` can be set once with `Config::setDefaultContext()`; explicit per-call context wins key by key.
@@ -99,6 +99,16 @@ AI agents: the generic integration skill shipped with this package is
 - HTTP calls use an injectable transport; cURL is only the zero-configuration fallback.
 - A custom adapter can be injected into `Client` for tests or alternative transports.
 - Each JSON-2 call is a separate Odoo transaction. Multi-call business workflows are not atomic.
+
+## Odoo Cloud rate limits
+
+Odoo Cloud generally accepts up to one request per second for occasional use, with no parallel calls. Enable pacing and bounded retries independently:
+
+    $config->setMinRequestIntervalMs(1_000)->setMaxRateLimitRetries(2);
+
+Both options default to zero. Pacing applies to one client instance, including redirects and PDF downloads. Coordinate workers externally when they share an Odoo instance.
+
+When explicitly enabled, a received HTTP 429 can be retried for any request, including writes. Retries use the server's Retry-After header or the configured exponential backoff when the header is missing or invalid. If a retry would require waiting more than 30 seconds or the retry count is exhausted, the HTTP 429 is surfaced to the caller. Network errors on writes still follow the existing policy.
 
 ## HTTP transport
 

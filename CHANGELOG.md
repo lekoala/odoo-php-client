@@ -5,7 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses version tags for its releases.
 
+## [0.2.2] - 2026-11-25
+
+### Added
+
+- Add opt-in request pacing with `setMinRequestIntervalMs()`. The interval
+  applies to HTTP requests from one client instance, including redirects.
+- Add opt-in HTTP 429 retries with `setMaxRateLimitRetries()`. Use `Retry-After`
+  when available and exponential backoff otherwise. Return the 429 to the
+  caller if retries are exhausted or the requested wait exceeds 30 seconds.
+
 ## [0.2.1] - 2026-10-30
+
 ### Changed
 
 - Remove redundant `curl_close()` calls from the cURL transport.

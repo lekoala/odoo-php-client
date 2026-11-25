@@ -19,6 +19,8 @@ class Config
     /** @var array<string, mixed> */
     private array $defaultContext = [];
     private int $maxRetries = 2;
+    private int $minRequestIntervalMs = 0;
+    private int $maxRateLimitRetries = 0;
     private int $retryBackoffBaseMs = 500;
     private float $retryBackoffMultiplier = 2.0;
     private int $connectTimeout = 5;
@@ -81,6 +83,8 @@ class Config
         $clone->setHttpTransport($this->httpTransport);
         $clone->setDefaultContext($this->defaultContext);
         $clone->setMaxRetries($this->maxRetries);
+        $clone->setMinRequestIntervalMs($this->minRequestIntervalMs);
+        $clone->setMaxRateLimitRetries($this->maxRateLimitRetries);
         $clone->setRetryBackoff($this->retryBackoffBaseMs, $this->retryBackoffMultiplier);
         $clone->setConnectTimeout($this->connectTimeout);
         $clone->setTimeout($this->timeout);
@@ -151,6 +155,28 @@ class Config
     public function setMaxRetries(int $maxRetries): self
     {
         $this->maxRetries = max(0, $maxRetries);
+        return $this;
+    }
+
+    public function getMinRequestIntervalMs(): int
+    {
+        return $this->minRequestIntervalMs;
+    }
+
+    public function setMinRequestIntervalMs(int $milliseconds): self
+    {
+        $this->minRequestIntervalMs = max(0, $milliseconds);
+        return $this;
+    }
+
+    public function getMaxRateLimitRetries(): int
+    {
+        return $this->maxRateLimitRetries;
+    }
+
+    public function setMaxRateLimitRetries(int $maxRetries): self
+    {
+        $this->maxRateLimitRetries = max(0, $maxRetries);
         return $this;
     }
 
@@ -239,6 +265,14 @@ class Config
 
         if (isset($config['maxRetries']) && is_numeric($config['maxRetries'])) {
             $instance->setMaxRetries((int) $config['maxRetries']);
+        }
+
+        if (isset($config['minRequestIntervalMs']) && is_numeric($config['minRequestIntervalMs'])) {
+            $instance->setMinRequestIntervalMs((int) $config['minRequestIntervalMs']);
+        }
+
+        if (isset($config['maxRateLimitRetries']) && is_numeric($config['maxRateLimitRetries'])) {
+            $instance->setMaxRateLimitRetries((int) $config['maxRateLimitRetries']);
         }
 
         if (isset($config['retryBackoffBaseMs']) && is_numeric($config['retryBackoffBaseMs'])) {

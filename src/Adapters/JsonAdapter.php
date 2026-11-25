@@ -11,6 +11,7 @@ use LeKoala\OdooClient\Config;
 use LeKoala\OdooClient\Http\CurlTransport;
 use LeKoala\OdooClient\Http\HttpClient;
 use LeKoala\OdooClient\Http\HttpRequest;
+use LeKoala\OdooClient\Http\RateLimitedRequests;
 
 /**
  * Adapter for Odoo 19+ JSON-2 API.
@@ -29,7 +30,8 @@ class JsonAdapter implements OdooAdapterInterface
             $config->getHttpTransport() ?? new CurlTransport(
                 $config->getConnectTimeout(),
                 $config->getTimeout()
-            )
+            ),
+            new RateLimitedRequests($config),
         );
     }
 
